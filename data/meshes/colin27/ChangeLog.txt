@@ -1,0 +1,21 @@
+==============================================================
+=            Collins adult brain atlas FEM mesh              =
+==============================================================
+
+ChangeLog:
+
+
+= Version 2 - 02/05/2011 =
+
+- reconstructed gray and white matter surfaces using FreeSurfer
+  surface output
+- merged cerebellum, brain stem and brain ventricles from MNI
+  segmented volume to voxelated FreeSurfer surfaces
+- recreated CSF surface, and the CSF layer is more accurate in 
+  thickness
+- optimized mesh using iso2mesh options distbound and radbound
+
+
+= Version 1 - 07/25/2010 =
+
+- initial release of Version 1 brain atlas mesh
