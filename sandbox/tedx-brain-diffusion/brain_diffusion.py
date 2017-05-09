@@ -47,27 +47,19 @@ public:
 
 f = Expression(cppcode=f_def, degree=0)
 
-# class Source(Expression):
-#     def eval(self, values, x):
-#         p = (118, 139, 106)
-#         r = math.sqrt(sum((x[i] - p[i])**2 for i in range(3)))
-#         if abs(r < 3):
-#             values[0] = 1.0
-#         else:
-#             values[0] = 0.0
-#         return values
-#f = Source(degree=0)
-            
-mesh = Mesh("../../meshes/brain-x/whitegray.xml.gz")
-markers = MeshFunction("size_t", mesh, "../../meshes/brain-x/whitegray_markers.xml.gz")
+mesh = Mesh()
+hdf = HDF5File(mpi_comm_world(), "../../meshes/colin27/colin27_whitegray.h5", "r")
+hdf.read(mesh, "/mesh", False)
+markers = CellFunction("size_t", mesh)
+hdf.read(markers, "/markers")
+hdf.close()
+#plot(mesh)
+#plot(markers, interactive=True)
 
 V = FunctionSpace(mesh, "DG", 0)
 file = File("output/f.pvd")
 file << interpolate(f, V)
 #plot(f, mesh=mesh, interactive=True)
-
-#plot(mesh)
-#plot(markers, interactive=True)
 
 # Variational formulation
 Q = FunctionSpace(mesh, "CG", 1)
