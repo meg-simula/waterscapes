@@ -1,0 +1,78 @@
+The AdultMNI152 head model originates via:
+
+http://www.ucl.ac.uk/medphys/research/borl/resources/adultMNImodel [May 9 2017]:
+
+From above page:
+
+"Two MRI templates for the adult head are currently widely used in
+literature, the Colin27 MRI atlas, (Collins et al., 1998) which
+consists of a high-resolution MRI volume of the same individual,
+scanned 27 times, and the non-linear MNI-ICBM152 atlas (Fonov et al,
+2011), which is an MRI volume obtained averaging 152 individuals."
+
+"We have therefore taken the non-linear MNI-ICBM152 atlas
+(http://www.bic.mni.mcgill.ca/ServicesAtlases/ICBM152NLin2009; this
+material is subject to copyright: Copyright (C) 1993–2004 Louis
+Collins, McConnell Brain Imaging Centre, Montreal Neurological
+Institute, McGill University.) and we have produced a head model for
+diffuse optical imaging. The segmentation of the scalp and skull has
+been performed using the algorithm proposed by Perdue et al. (2014).
+
+* The MNI-ICBM152 Head Model Package * 
+
+The package available below contains the following components (in .txt
+and .mat Matlab(R) formats) for the MNI-ICBM152 adult head atlas:
+
+TissueMask.mat
+
+The voxel space tissue mask with voxel size 1 x 1 x 1 mm. Each voxel
+is assigned an index which defines tissue type.
+
+TissueTypes.txt
+
+A text file which links each segmented tissue type to its index
+value. The defined tissue types are scalp, skull, cerebrospinal fluid,
+grey matter and white matter.
+
+HeadVolumeMesh.mat
+
+The whole-head tetrahedral volume mesh in a matlab structure (.node,
+.elem, .face). The node coordinates are in mm and are defined
+according to the MNI coordinate system. Each element is assigned an
+index which defines its tissue type (this is the 5th column of the
+associated matlab field HeadVolumeMesh.elem). The 4th column of the
+face field also defines its tissue type. The 4th column of the node
+field defines the nodal tissue type.
+
+ScalpSurfaceMesh.mat
+
+The surface mesh of the external surface of scalp tissue layer in a
+matlab structure (.node, .face). The node coordinates are in mm and
+are defined according to the MNI coordinate system.
+
+GMSurfaceMesh.mat
+
+The surface mesh of the external surface of the grey matter tissue
+layer in a matlab structure (.node, .face). The node coordinates are
+in mm and are defined according to the MNI coordinate system.
+
+WMSurfaceMesh.mat
+
+The surface mesh of the external surface of the white matter tissue
+layer in a matlab structure (.node, .face). The node coordinates are
+in mm and are defined according to the MNI coordinate system.
+
+LandmarkPoints.txt
+
+The 3D locations of the Inion, Nasion, Ar and Al cranial landmarks in
+mm. These points were defined on the tetrahedral volume mesh and
+correspond to particular nodes in that mesh.
+
+10-5_Points.txt
+
+The 3D positions of 10-5 locations defined on the tetrahedral volume
+mesh in mm. Includes the vertex, Cz.
+
+This material is subject to copyright. It is freely available for use
+but may not be used as part of any commercial product. Please ensure
+that any use of this package is fully acknowledged in any publication."

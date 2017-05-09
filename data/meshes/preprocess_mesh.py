@@ -202,5 +202,8 @@ def generate_colin_mesh(prefix):
     
 if __name__ == "__main__":
     
-    convert_mesh("colin27")
-    split_meshes("colin27")
+    #convert_mesh("colin27")
+    #split_meshes("colin27")
+
+    convert_mesh("adultmni152")
+    split_meshes("adultmni152")
