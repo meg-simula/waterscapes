@@ -1,3 +1,7 @@
+# This module provides utilities for converting matlab style meshes
+# with subdomain markers to FEniCS format. Customized for the colin27
+# and adult_mni_152 brain meshes.
+
 import scipy.io
 from dolfin import *
 
@@ -35,64 +39,71 @@ def create_submesh_markers(markers, submesh):
 
     return submesh_markers
 
-def split_meshes():
+def split_meshes(prefix):
 
-    mesh = Mesh("adult_mni_152_model_mesh.xml.gz")
-    markers = MeshFunction("size_t", mesh, "adult_mni_152_model_markers.xml.gz")
+    #mesh = Mesh()
+    #hdf = HDF5File(mpi_comm_world(), "%s/%s.h5" % (prefix, prefix), "r")
+    #hdf.read(mesh, "/mesh", False)
+    #markers = CellFunction("size_t", mesh)
+    #hdf.read(markers, "/markers")
+    #hdf.close()
     #plot(markers, title="Cell markers")
 
+    begin("Separating out white and gray matter")
+    mesh = Mesh("%s/%s_mesh.xml" % (prefix, prefix))
+    markers = MeshFunction("size_t", mesh, "%s/%s_markers.xml" % (prefix, prefix))
+    if prefix == "colin27":
+        GRAY = 3 
+        WHITE = 4
+    elif prefix == "adultmni152":
+        GRAY = 4
+        WHITE = 5
+    
     # Create mesh of the white and gray matter
-    GRAY = 4 # In Collins = 3
-    WHITE = 5 # In Collins = 4
     tissue = CellFunction("size_t", mesh, 0)
     tissue.array()[markers.array()==GRAY] = 1
     tissue.array()[markers.array()==WHITE] = 1
     whitegray = SubMesh(mesh, tissue, 1)
 
-    #white = SubMesh(mesh, markers, WHITE)
-    #gray = SubMesh(mesh, markers, GRAY)
-
     # Map supermesh markers to submesh
     whitegray_markers = create_submesh_markers(markers, whitegray)
 
-    # Store submesh
-    file = File("adult_mni_152_model_whitegray_mesh.xml.gz")
-    file << whitegray
-    file = File("adult_mni_152_model_whitegray_mesh.xdmf")
-    file << whitegray
-
-    # Store submarkers
-    file = File("adult_mni_152_model_whitegray_markers.xml.gz")
-    file << whitegray_markers
-    file = File("adult_mni_152_model_whitegray_markers.xdmf")
-    file << whitegray_markers
+    # Store submesh and markers
+    file = HDF5File(mpi_comm_world(), "%s/%s_whitegray.h5" % (prefix, prefix), "w")
+    file.write(whitegray, "/mesh")
+    file.write(whitegray_markers, "/markers")
+    file.close()
 
     #plot(white, title="White matter")
     #plot(gray, title="Gray matter")
-    #plot(whitegray, title="Mesh")
-    #plot(whitegray_markers, title="Gray and white matter")
-    #interactive()
-
+    plot(whitegray, title="Mesh")
+    plot(whitegray_markers, title="Gray and white matter")
+    end()
+    interactive()
+    
+    
 def convert_mat_to_xml(prefix, gdim=3, celltype="tetrahedron"):
 
     # Load matlab data from Colin27 or Adult MNI mesh
-    if True:
-        mat_contents = scipy.io.loadmat('MMC_Collins_Atlas_Mesh_Version_2L.mat')
+    if prefix == "colin27":
+        mat_contents = scipy.io.loadmat('%s/MMC_Collins_Atlas_Mesh_Version_2L.mat' % prefix)
         # Extract into separate arrays
         node = mat_contents["node"]
         elem = mat_contents["elem"]
         face = mat_contents["face"]
 
-    else:
-        mat_contents = scipy.io.loadmat('HeadVolumeMesh.mat')
+    elif prefix == "adultmni152":
+        mat_contents = scipy.io.loadmat('%s/HeadVolumeMesh.mat' % prefix)
         node =  mat_contents["HeadVolumeMesh"]["node"][0][0]
         elem =  mat_contents["HeadVolumeMesh"]["elem"][0][0]
         face =  mat_contents["HeadVolumeMesh"]["face"][0][0]
-
+    else:
+        error("Unknown mesh data file: %s" % prefix)
+        
     num_vertices = node.size
-    print "num_vertices = ", num_vertices
+    print("Mesh has %d vertices" % num_vertices)
     num_cells = elem.size
-    print "num_cells = ", num_cells
+    print("Mesh has %d cells" % num_cells)
 
     # -- Write mesh
 
@@ -136,13 +147,13 @@ def convert_mat_to_xml(prefix, gdim=3, celltype="tetrahedron"):
 </dolfin>
     """ % (gdim, num_cells, markers)
 
-    filename1 = prefix + "_mesh.xml"
+    filename1 = "%s/%s_mesh.xml"  % (prefix, prefix)
     print "Writing data to %s" % filename1
     file = open(filename1, 'w')
     file.write(contents)
     file.close()
 
-    filename2 = prefix + "_markers.xml"
+    filename2 = "%s/%s_markers.xml"  % (prefix, prefix)
     print "Writing data to %s" % filename2
     file = open(filename2, 'w')
     file.write(markers_code)
@@ -152,29 +163,44 @@ def convert_mat_to_xml(prefix, gdim=3, celltype="tetrahedron"):
 
     return filename1, filename2
 
-if __name__ == "__main__":
+def convert_mesh(prefix):
 
-    if True:
-        prefix = "colin27"
-        f1, f2 = convert_mat_to_xml(prefix)
+    print("Converting %s mesh..." % prefix)
+    f1, f2 = convert_mat_to_xml(prefix)
 
-        # Read mesh back in
-        f1 = prefix + "_mesh.xml"
-        mesh = Mesh(f1)
-
-        # Read markers back in
-        f2 = prefix + "_markers.xml"
-        markers = MeshFunction("size_t", mesh, f2)
+    # Read mesh back in
+    mesh = Mesh(f1)
+    
+    # Read markers back in
+    markers = MeshFunction("size_t", mesh, f2)
  
-        # Store as h5 as well
-        file = HDF5File(mpi_comm_world(), prefix + ".xdmf", 'w')
-        file.write(mesh, "/mesh")
-        file.write(markers, "/markers")
-        file.close()
+    # Store as h5 as well
+    print("Storing h5")
+    file = HDF5File(mpi_comm_world(), "%s/%s.h5" % (prefix, prefix), 'w')
+    file.write(mesh, "/mesh")
+    file.write(markers, "/markers")
+    file.close()
 
-        # Look at mesh and markers
-        plot(mesh, title=prefix)
-        plot(markers, title=prefix)
-        interactive()
+def generate_colin_mesh(prefix):
 
-    #split_meshes()
+    print("Converting %s mesh..." % prefix)
+    f1, f2 = convert_mat_to_xml(prefix)
+
+    # Read mesh back in
+    mesh = Mesh(f1)
+    
+    # Read markers back in
+    markers = MeshFunction("size_t", mesh, f2)
+ 
+    # Store as h5 as well
+    print("Storing h5")
+    hdf = HDF5File(mpi_comm_world(), "%s/%s.h5" % (prefix, prefix), 'w')
+    hdf.write(mesh, "/mesh")
+    hdf.write(markers, "/markers")
+    hdf.flush()
+    hdf.close()
+    
+if __name__ == "__main__":
+    
+    convert_mesh("colin27")
+    split_meshes("colin27")
