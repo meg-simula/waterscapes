@@ -1,0 +1,111 @@
+# Test preconditioner for different \lambda and N
+#2 fields formulation
+
+block = mu * grad(u), grad(v)
+
+dt = 1./64
+
+N     \  lambda          1              1000                   100000
+
+8                        41              230                      269
+
+16                       39              381                      488
+
+32                       39              441                      876
+
+64                       37              443                      1280
+
+block = grad(u), grad(v) + lambda*(div(u), div(v))
+
+dt = 1./64
+
+N     \  lambda          1              1000                   100000
+
+8                        39              1200                  2602
+
+16                       39              1744                  6888
+
+32                       39              1874                  10000/not conv
+
+64                       37               1494                 10000/not conv
+
+
+#total pressure formulation
+
+dt = 1./64
+
+N     \  lambda          1               1000                   100000
+
+8                        54              100                    115
+
+16                       54              102                    77
+
+32                       55              102                     76
+
+64                       53              104                     75
+
+
+
+
+total pressure formulation
+
+dt = 1./64
+
+N = 8
+K   \  lambda          1               1000                   100000
+
+1                      56              68                     78
+
+1e-3                   60              70                    52
+
+1e-5                   60              71                    53
+
+N = 16
+K   \  lambda          1               1000                   100000
+
+1                      57              72                    52
+
+1e-3                   61              72                    54
+
+1e-5                   61              73                    54
+
+
+N = 32
+K   \  lambda          1               1000                   100000
+
+1                      56              73                    53
+
+1e-3                   65              73                    50
+
+1e-5                   65              72                    54
+
+N = 64
+K   \  lambda          1               1000                   100000
+
+1                      55              75                    54
+
+1e-3                   68              73                    54
+
+1e-5                   65              73                    55
+
+N = 128
+K   \  lambda          1               1000                   100000
+
+1                      55              55                    53
+
+1e-3                   69              55                    53
+
+1e-5                   67              75                    53
+
+
+
+
+
+
+
+
+
+
+
+
+

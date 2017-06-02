@@ -1,0 +1,14 @@
+# Dependencies:
+
+* FEniCS (www.fenicsproject.org) v1.6 or later
+* cbcpost (April 19 2016 or later)
+
+# To install:
+python setup.py install --prefix=/your/favorite/folder
+
+# For instance
+python setup.py install --user
+
+# If you don't want to install globally, just add mpet to your
+# PYTHONPATH via:
+export PYTHONPATH=`pwd`:$PYTHONPATH
