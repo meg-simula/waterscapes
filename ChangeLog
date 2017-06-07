@@ -1,0 +1,4 @@
+- Add module MPET providing a collection of solvers for MPET
+- Add basic diffusion on colin's mesh script used for TEDxOslo
+- Add Haga et al, 2012 test case in sandbox/
+- Add Colin27 and AdultMNI152 meshes and scripts to process these
