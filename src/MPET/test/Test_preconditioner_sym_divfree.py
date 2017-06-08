@@ -103,17 +103,26 @@ class FirstTest(MPET):
     def boundary_conditions(self, t):
         "Specify essential boundary conditions at time t as a given tuple."
 
-        AA = self.params.AA
-        L = self.params.L
-        n = self.period
-
-        uex, pex = self.exact_solutions(t)
-        
-        u0 = [(uex, self.allboundary)]
-
-        p0 = [((1), pex[0], self.allboundary), ((2), pex[1], self.allboundary)]
-
+        u0 = []
+        p0 = []
         return u0, p0
+
+    def boundary_conditions_u(self, t0, t1, theta):
+
+        uex1, pex1 = self.exact_solutions(t1)
+
+        bcu = {1: {"Dirichlet": uex1}}
+
+        return bcu
+
+    def boundary_conditions_p(self, t0, t1, theta):
+
+        uex1, pex1 = self.exact_solutions(t1)
+
+        bcp = [{1: {"Dirichlet": pex1[0]}},
+               {1: {"Dirichlet": pex1[1]}}]
+
+        return bcp
 
     def neumann_conditions(self, t0, t1, theta):
         u0 = []

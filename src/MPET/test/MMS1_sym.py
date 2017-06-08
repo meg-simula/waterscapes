@@ -35,7 +35,7 @@ class FirstTest(MPET):
         self.facet_domains = FacetFunction("size_t", self.mesh)
         self.facet_domains.set_all(0)
 
-        self.bc_type = "Neumann"
+        self.bc_type = "Dirichlet"
         # Mark all exterior boundary facets as 1
         # Note: The CompiledSubDomain class gives faster code than
         # Python subclassing
