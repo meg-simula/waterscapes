@@ -61,6 +61,7 @@ class FirstTest(MPET):
         self.allboundary.mark(self.facet_domains, 1)
         self.ventricles.mark(self.facet_domains, 2) 
         self.skull.mark(self.facet_domains, 3) 
+        self.boundary_type = ["Neumann", "Dirichlet"]
        
     def CSF_pressure(self, t):
         I_length, c, s = csf_pressure()
@@ -93,9 +94,10 @@ class FirstTest(MPET):
 
         stress0 = self.CSF_pressure(t0)
         stress1 = self.CSF_pressure(t1)    
-        stress = theta * stress1 + (1.0 - theta) * stress0    
-        bcu = {2: {"Neumann": stress},
-               3: {"Neumann": stress}}
+        stress = theta * stress1 + (1.0 - theta) * stress0
+        if self.boundary_type[0] == "Neumann":   
+	        bcu = {2: {"Neumann": stress},
+	               3: {"Neumann": stress}}
 
         return bcu
 
@@ -104,8 +106,9 @@ class FirstTest(MPET):
         uex, pex = self.exact_solutions(t1)
         p_CSF = self.CSF_pressure(t1)
 
-        bcp = {2: {"Dirichlet": (1, p_CSF)},
-               3: {"Dirichlet": (1, p_CSF)}}
+        if boundary_type[1] == "Dirichlet"
+        bcp = [{2: {"Dirichlet": p_CSF},
+                3: {"Dirichlet": p_CSF}}]
 
         return bcp
 
