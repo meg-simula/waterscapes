@@ -701,10 +701,10 @@ class SimpleSolver():
                     bcs.append(bc)
                 if 'Neumann' in bcsp[j]:
                     flux = bcsp[j]['Neumann']
-                    integrals_N.append(inner(dt * flux,n)*qs[i]*self.ds(j))
+                    integrals_N.append(inner(dt * flux,n) * qs[i] * self.ds(j))
                 if 'Robin' in bcsp[j]:
                     (r, pr) = bcsp[j]['Robin']
-                    integrals_R.append(r*(ps[i] - pr)*qs[i]*self.ds(j))
+                    integrals_R.append(dt * r * (ps[i] - pr) * qs[i] * self.ds(j))
 
         F +=  sum(integrals_N) + sum(integrals_R)
 

@@ -106,9 +106,19 @@ class FirstTest(MPET):
         uex, pex = self.exact_solutions(t1)
         p_CSF = self.CSF_pressure(t1)
 
-        if boundary_type[1] == "Dirichlet"
-        bcp = [{2: {"Dirichlet": p_CSF},
-                3: {"Dirichlet": p_CSF}}]
+        if self.boundary_type[1] == "Dirichlet":
+	        bcp = [{2: {"Dirichlet": p_CSF},
+	                3: {"Dirichlet": p_CSF}}]
+
+        if self.boundary_type[1] == "Neumann":
+            bcp = [{2: {"Neumann": p_CSF},
+                    3: {"Neumann": p_CSF}}]
+                    
+        if self.boundary_type[1] == "Robin":
+            beta2 = 0.0
+            beta3 = 1.0
+            bcp = [{2: {"Robin": (beta2, p_CSF)},
+                    3: {"Robin": (beta3, p_CSF)}}]
 
         return bcp
 
