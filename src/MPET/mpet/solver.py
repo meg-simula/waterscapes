@@ -684,7 +684,7 @@ class SimpleSolver():
 
         for i in boundary_conditions_u:
             if 'Dirichlet' in boundary_conditions_u[i]:
-                bc = DirichletBC(ME.sub(0), project(boundary_conditions_u[i]['Dirichlet'], Ve), self.problem.facet_domains, i)
+                bc = DirichletBC(ME.sub(0), boundary_conditions_u[i]['Dirichlet'], self.problem.facet_domains, i)
                 bcs.append(bc)
             if 'Neumann' in boundary_conditions_u[i]:
                 stress = boundary_conditions_u[i]['Neumann']
@@ -697,14 +697,16 @@ class SimpleSolver():
             bcsp = boundary_conditions_p[i]
             for j in bcsp:
                 if 'Dirichlet' in bcsp[j]:
-                    bc = DirichletBC(ME.sub(i+1), project(bcsp[j]["Dirichlet"], We), self.problem.facet_domains, j)
+                    print "j = ", j
+                    print "time = ", bcsp[j]
+                    bc = DirichletBC(ME.sub(i+1), bcsp[j]["Dirichlet"], self.problem.facet_domains, j)
                     bcs.append(bc)
                 if 'Neumann' in bcsp[j]:
                     flux = bcsp[j]['Neumann']
                     integrals_N.append(inner(dt * flux,n) * qs[i] * self.ds(j))
                 if 'Robin' in bcsp[j]:
                     (r, pr) = bcsp[j]['Robin']
-                    integrals_R.append(dt * r * (ps[i] - pr) * qs[i] * self.ds(j))
+                    integrals_R.append(dt * r * (pms[i] - pr) * qs[i] * self.ds(j))
 
         F +=  sum(integrals_N) + sum(integrals_R)
 
@@ -831,6 +833,7 @@ class SimpleSolver():
             U.assign(U0)
           
         while t < T-DOLFIN_EPS:
+            print len(bcs)
             log(INFO, "Solving on time interval: (%g, %g)" % (t, t+dt))
 
             # Assemble the right-hand side

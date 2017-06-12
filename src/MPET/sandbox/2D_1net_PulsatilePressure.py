@@ -59,9 +59,13 @@ class FirstTest(MPET):
 
         
         self.allboundary.mark(self.facet_domains, 1)
-        self.ventricles.mark(self.facet_domains, 2) 
-        self.skull.mark(self.facet_domains, 3) 
-        self.boundary_type = ["Neumann", "Dirichlet"]
+        #self.ventricles.mark(self.facet_domains, 2) 
+        #self.skull.mark(self.facet_domains, 3) 
+        plot(self.facet_domains, mesh=self.mesh)
+        interactive()
+        self.beta2 = 0.0
+        self.beta3 = 1.0e-5
+        self.bc_type = ["Dirichlet", "Dirichlet"]
        
     def CSF_pressure(self, t):
         I_length, c, s = csf_pressure()
@@ -94,31 +98,34 @@ class FirstTest(MPET):
 
         stress0 = self.CSF_pressure(t0)
         stress1 = self.CSF_pressure(t1)    
-        stress = theta * stress1 + (1.0 - theta) * stress0
+        if self.boundary_type[0] == "Dirichlet":   
+	        bcu = {1: {"Dirichlet": as_vector((sin(t1), sin(t1)))}}
         if self.boundary_type[0] == "Neumann":   
-	        bcu = {2: {"Neumann": stress},
-	               3: {"Neumann": stress}}
+	        bcu = {1: {"Neumann": sin(t1)}}
 
         return bcu
 
     def boundary_conditions_p(self, t0, t1, theta):
 
         uex, pex = self.exact_solutions(t1)
-        p_CSF = self.CSF_pressure(t1)
+        p_CSF0 = self.CSF_pressure(t0)
+        p_CSF1 = self.CSF_pressure(t1)
+        p_CSF = theta*p_CSF1 + (1.0-theta)*p_CSF0
+        deltaP = 0.5
 
         if self.boundary_type[1] == "Dirichlet":
-	        bcp = [{2: {"Dirichlet": p_CSF},
-	                3: {"Dirichlet": p_CSF}}]
+        	print "Dirichlet"
+	        bcp = [{1: {"Dirichlet": sin(t1)}}]
 
         if self.boundary_type[1] == "Neumann":
-            bcp = [{2: {"Neumann": p_CSF},
-                    3: {"Neumann": p_CSF}}]
+			print "Neumann"
+			bcp = [{2: {"Neumann": 0.0},
+			        3: {"Neumann": 0.0}}]
                     
-        if self.boundary_type[1] == "Robin":
-            beta2 = 0.0
-            beta3 = 1.0
-            bcp = [{2: {"Robin": (beta2, p_CSF)},
-                    3: {"Robin": (beta3, p_CSF)}}]
+        if self.boundary_type[1] == "DirichletRobin":
+			print "DirichletRobin"
+			bcp = [{2: {"Dirichlet": p_CSF1},
+			        3: {"Robin": (self.beta3, p_CSF)}}]
 
         return bcp
 
@@ -177,7 +184,7 @@ class FirstTest(MPET):
       
         # No null space
         #null = False
-        null = True
+        null = False
         return null
 
 
@@ -189,7 +196,7 @@ def single_run(paramsfile, mesh):
     #solver parameters:
     
     dt = 1.0/40
-    T = 10.0
+    T = 1.0
 
     KG = 1.5e-5
     KW = 1.5e-3
@@ -226,12 +233,13 @@ def single_run(paramsfile, mesh):
     print "mu = ", problem.params.E/(2.0*(1.0+problem.params.nu))
 
     print "Ks = ", problem.params.Ks
-    problem.params.Ks = (MyKs(KW, KG, rWG, degree=1),)
+    #problem.params.Ks = (MyKs(KW, KG, rWG, degree=1),)
     
     #plot(problem.params.Ks[0], mesh=problem.mesh)
     #interactive()
     foldername = "2D_1Net_PulsatilePressure_PCSFOnBoundaries_Acceleration_%s"%problem.params.Acceleration + "_nullspace_%s" %problem.nullspace() +\
-                 "_E_" + "%05.03e" %problem.params.E + "_nu_" + "%04.05e" %problem.params.nu +"anisotropic_K_KG" + "%04.05e" %KG + "_KW_" +"%04.05e" %KW +\
+                 "_bcu_%s" %problem.boundary_type[0] + "_bcp_%s" %problem.boundary_type[1] + "_E_" + "%05.03e" %problem.params.E + "_nu_" +\
+                 "%04.05e" %problem.params.nu +"Ks" + "%04.05e" %problem.params.Ks +\
                  "_Q" + "%04.03e" %problem.params.Q + "_Donut_coarse_refined"
     
     
@@ -279,7 +287,8 @@ def single_run(paramsfile, mesh):
         #filep0.write(p[0])
         #filevf.write(vf)
         # print u(Point(30.0,0.0))
-        # plot(u, key="u", title="displacement", mesh=mesh)
+        plot(u, key="u", title="displacement", mesh=mesh)
+        plot(p[0], key="p", title="pressure", mesh=mesh)
         
     problemparamsfile = "results/" + foldername + "/problemparams.txt"
     with open(problemparamsfile, "a") as f_problem: 
