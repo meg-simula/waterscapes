@@ -98,9 +98,9 @@ class FirstTest(MPET):
 
         stress0 = self.CSF_pressure(t0)
         stress1 = self.CSF_pressure(t1)    
-        if self.boundary_type[0] == "Dirichlet":   
-	        bcu = {1: {"Dirichlet": as_vector((sin(t1), sin(t1)))}}
-        if self.boundary_type[0] == "Neumann":   
+        if self.bc_type[0] == "Dirichlet":   
+	        bcu = {1: {"Dirichlet": Expression(("sin(t1)", "sin(t1)"), t1=t1, domain=self.mesh,degree=3)}}
+        if self.bc_type[0] == "Neumann":   
 	        bcu = {1: {"Neumann": sin(t1)}}
 
         return bcu
@@ -113,16 +113,16 @@ class FirstTest(MPET):
         p_CSF = theta*p_CSF1 + (1.0-theta)*p_CSF0
         deltaP = 0.5
 
-        if self.boundary_type[1] == "Dirichlet":
+        if self.bc_type[1] == "Dirichlet":
         	print "Dirichlet"
-	        bcp = [{1: {"Dirichlet": sin(t1)}}]
+	        bcp = [{1: {"Dirichlet": Expression("sin(t1)", t1=t1, domain=self.mesh,degree=3)}}]
 
-        if self.boundary_type[1] == "Neumann":
+        if self.bc_type[1] == "Neumann":
 			print "Neumann"
 			bcp = [{2: {"Neumann": 0.0},
 			        3: {"Neumann": 0.0}}]
                     
-        if self.boundary_type[1] == "DirichletRobin":
+        if self.bc_type[1] == "DirichletRobin":
 			print "DirichletRobin"
 			bcp = [{2: {"Dirichlet": p_CSF1},
 			        3: {"Robin": (self.beta3, p_CSF)}}]
@@ -238,7 +238,7 @@ def single_run(paramsfile, mesh):
     #plot(problem.params.Ks[0], mesh=problem.mesh)
     #interactive()
     foldername = "2D_1Net_PulsatilePressure_PCSFOnBoundaries_Acceleration_%s"%problem.params.Acceleration + "_nullspace_%s" %problem.nullspace() +\
-                 "_bcu_%s" %problem.boundary_type[0] + "_bcp_%s" %problem.boundary_type[1] + "_E_" + "%05.03e" %problem.params.E + "_nu_" +\
+                 "_bcu_%s" %problem.bc_type[0] + "_bcp_%s" %problem.bc_type[1] + "_E_" + "%05.03e" %problem.params.E + "_nu_" +\
                  "%04.05e" %problem.params.nu +"Ks" + "%04.05e" %problem.params.Ks +\
                  "_Q" + "%04.03e" %problem.params.Q + "_Donut_coarse_refined"
     
