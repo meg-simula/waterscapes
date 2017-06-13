@@ -59,13 +59,13 @@ class FirstTest(MPET):
 
         
         self.allboundary.mark(self.facet_domains, 1)
-        #self.ventricles.mark(self.facet_domains, 2) 
-        #self.skull.mark(self.facet_domains, 3) 
+        self.ventricles.mark(self.facet_domains, 2) 
+        self.skull.mark(self.facet_domains, 3) 
         plot(self.facet_domains, mesh=self.mesh)
-        interactive()
+        #interactive()
         self.beta2 = 0.0
-        self.beta3 = 1.0e-5
-        self.bc_type = ["Dirichlet", "Dirichlet"]
+        self.beta3 = 1.0
+        self.bc_type = ["Neumann", "DirichletRobin"]
        
     def CSF_pressure(self, t):
         I_length, c, s = csf_pressure()
@@ -98,10 +98,8 @@ class FirstTest(MPET):
 
         stress0 = self.CSF_pressure(t0)
         stress1 = self.CSF_pressure(t1)    
-        if self.bc_type[0] == "Dirichlet":   
-	        bcu = {1: {"Dirichlet": Expression(("sin(t1)", "sin(t1)"), t1=t1, domain=self.mesh,degree=3)}}
         if self.bc_type[0] == "Neumann":   
-	        bcu = {1: {"Neumann": sin(t1)}}
+	        bcu = {1: {"Neumann": stress1}}
 
         return bcu
 
@@ -114,8 +112,9 @@ class FirstTest(MPET):
         deltaP = 0.5
 
         if self.bc_type[1] == "Dirichlet":
-        	print "Dirichlet"
-	        bcp = [{1: {"Dirichlet": Expression("sin(t1)", t1=t1, domain=self.mesh,degree=3)}}]
+			print "Dirichlet"
+			bcp = [{2: {"Dirichlet": 0.0},
+			        3: {"Dirichlet": 0.0}}]
 
         if self.bc_type[1] == "Neumann":
 			print "Neumann"
@@ -183,8 +182,8 @@ class FirstTest(MPET):
     def nullspace(self):
       
         # No null space
+        null = True
         #null = False
-        null = False
         return null
 
 
@@ -238,7 +237,7 @@ def single_run(paramsfile, mesh):
     #plot(problem.params.Ks[0], mesh=problem.mesh)
     #interactive()
     foldername = "2D_1Net_PulsatilePressure_PCSFOnBoundaries_Acceleration_%s"%problem.params.Acceleration + "_nullspace_%s" %problem.nullspace() +\
-                 "_bcu_%s" %problem.bc_type[0] + "_bcp_%s" %problem.bc_type[1] + "_E_" + "%05.03e" %problem.params.E + "_nu_" +\
+                 "_bcu_%s" %problem.bc_type[0] + "_bcp_%s" %problem.bc_type[1] + "_beta3_" + "%05.03e" %problem.beta3 + "_E_" + "%05.03e" %problem.params.E + "_nu_" +\
                  "%04.05e" %problem.params.nu +"Ks" + "%04.05e" %problem.params.Ks +\
                  "_Q" + "%04.03e" %problem.params.Q + "_Donut_coarse_refined"
     
