@@ -55,16 +55,15 @@ def csf_pressure():
 	I_length = float(I[-1] - I[0])
 	p =lambda x: sum( [c[i]*cos(2*pi/I_length*i*x) + s[i]*sin(2*pi/I_length*i*x) for i in range(len(c))])
 	
-	# plt.figure()
-	# plt.plot(np.linspace(time[0], time[-1], 100), [sum( [c[i]*cos(2*pi/I_length*i*x) + s[i]*sin(2*pi/I_length*i*x) for i in range(len(c))]) for x in np.linspace(time[0],time[-1],100)],linewidth=5)
-
+	#plt.figure()
+	#plt.plot(np.linspace(time[0], time[-1], 100), [sum( [c[i]*cos(2*pi/I_length*i*x) + s[i]*sin(2*pi/I_length*i*x) for i in range(len(c))]) for x in np.linspace(time[0],time[-1],100)],linewidth=5)
 	# plt.xlabel('time [s]')
 	# plt.ylabel('P [Pa]')
 	# plt.title('Intracranial pressure')
 	# plt.grid(True)
 	# png_folder = "../../png/"
 	# plt.savefig(png_folder + "EidePressure.png")
-	# plt.show()
+	#plt.show()
 	return I_length, c, s
 
 
