@@ -14,26 +14,39 @@ This is the 2D version of the sphere brain mesh generated in generate_mesh.py
 from dolfin import *
 from mshr import *
 
+
 def generate_brain_mesh():
 
     # Get as much output as possible by setting debug type log level.
     set_log_level(DEBUG)
 
-    origin = Point(0.0, 0.0)
     r1 = 10.0 # Outer radius (cm)
     r2 = 3.0 # Inner radius  (cm)
     r3 = 0.5 # Aqueduct radius
+    r4 = (r1 - r2)*0.8 + r2 # white matter radius
+    r5 = (r1 - r2)*0.2 # distance between aqueduct and grey matter
+
+    origin = Point(0.0, 0.0)
     cistern1 = Point(origin.x() + r3, origin.y() - r1)
     cistern2 = Point(origin.x() - r3, origin.y())
 
+    # Define white matter regions
+    white = Circle(origin, r4)
+    cistern3 = Point(origin.x() + r3 + r5, origin.y() - r1)
+    cistern4 = Point(origin.x() - r3 - r5, origin.y())
+    aqueduct_white = Rectangle(cistern3, cistern4) # white matter around the aqueduct
     
-    parenchyma = Circle(origin, r1)
-    ventricles = Circle(origin, r2)
-    aqueduct   = Rectangle(cistern1, cistern2)
-    
-    geometry  = parenchyma - ventricles - aqueduct
-    dolfin.info(geometry, True)
+    parenchyma   = Circle(origin, r1)
+    ventricles   = Circle(origin, r2)
+    aqueduct     = Rectangle(cistern1, cistern2)
 
+    # white and grey matter geometries
+    geometry_grey = parenchyma - white - aqueduct_white
+    dolfin.info(geometry_grey, True)
+    geometry_white = parenchyma - geometry_grey - ventricles - aqueduct
+    dolfin.info(geometry_white, True)
+
+    # outer box mesh incapsulating the brain mesh
     lmbda = 0.3
     outer_coor1 = -r1*(1.+lmbda)
     outer_coor2 =  r1*(1.+lmbda)
@@ -42,14 +55,40 @@ def generate_brain_mesh():
     rectangle = Rectangle(p1,p2) 
     dolfin.info(rectangle, True)
 
-    rectangle.set_subdomain(1, geometry)
+    # set subdomains for mshr so that the meshes are nested
+    rectangle.set_subdomain(1, geometry_grey)
+    rectangle.set_subdomain(2, geometry_white)
+
+    # NOTE, leaving the next line just in case it is useful in the future
+    #white_matter = Expression("((x[0]*x[0] + x[1]*x[1] <= r4*r4) || ((-a <= x[0]) && (x[0] <= a) && (-r1 <= x[1]) && (x[1] <= 0))) ? 2 : 1", r4 = r4, a = r3 + r5, r1 = r1, degree = 2)
     
     # Create mesh, N controls the resolution (N higher -> more cells)
     N = 25
     outer_mesh = generate_mesh(rectangle, N)
+
+    # extract the outer mesh subdomains so that we can extract the inner brain mesh
+    # and we can define the domain marker IDs for white and grey matter
     brain_geom_markers = MeshFunction("size_t", outer_mesh, 2, outer_mesh.domains())
+    markers = brain_geom_markers.array().copy()
+    markers[markers == 2] = 0 # 0 - white matter, 1 - grey matter
+
+    # set markers for inner brain mesh extraction
+    brain_geom_markers.array()[brain_geom_markers.array() == 2] = 1
+    # extract inner brain mesh
     inner_mesh = SubMesh(outer_mesh, brain_geom_markers, 1)
-    
+
+    # Create inner_mesh markers from outer_mesh
+    whitegrey_markers = MeshFunction("size_t", inner_mesh, 2)
+    cell_map = inner_mesh.data().array("parent_cell_indices", 2)
+    for cell in cells(inner_mesh):
+        i = cell.index()
+        j = int(cell_map[i])
+        whitegrey_markers.array()[i] = markers[j]
+
+    # save markers to pvd and xml
+    File("markers.pvd") << whitegrey_markers
+    File("markers.xml") << whitegrey_markers
+
     plot(outer_mesh, title="outer mesh")
     plot(inner_mesh, title="inner mesh")
     
@@ -68,14 +107,23 @@ def generate_brain_mesh():
 
     return (inner_mesh, outer_mesh)
     
-def solve_poisson(mesh):
-    "Solve basic Poisson problem on given mesh"
+def solve_poisson(mesh, markers):
+    """Solve basic Poisson problem on inner brain mesh with piecewise
+       constant diffusion coefficient (1 on the white matter and 2 on
+       the grey matter
+    """
     
+    DG = FunctionSpace(mesh, "DG", 0)
+    K = Function(DG)
+    K.vector()[:] = markers.array()
+    File("markers_fun.pvd") << K
+
     V = FunctionSpace(mesh, "CG", 1)
     u = TrialFunction(V)
     v = TestFunction(V)
+    
 
-    a = inner(grad(u), grad(v))*dx
+    a = inner((Constant(1.0) + K)*grad(u), grad(v))*dx
     f = Expression("pow(x[0] - 0.5, 2)", degree=2)
     L = f*v*dx()
 
@@ -88,7 +136,7 @@ def solve_poisson(mesh):
 
 if __name__ == "__main__":
 
-    mesh = generate_brain_mesh()
+    inner_mesh, outer_mesh = generate_brain_mesh()
 
     # Test that mesh can be read back in and solved on
     inner_mesh = Mesh()
@@ -97,15 +145,12 @@ if __name__ == "__main__":
     file.read(inner_mesh, "/inner_mesh", False)
     file.read(outer_mesh, "/outer_mesh", False)
     file.close()
-    
-    inner_u = solve_poisson(inner_mesh)
-    file = File("inner_u.pvd")
-    file << inner_u
-    plot(inner_u, title="solution")
 
-    outer_u = solve_poisson(outer_mesh)
-    file = File("outer_u.pvd")
-    file << outer_u
-    plot(outer_u, title="solution")
+    # test only on the inner brain mesh
+    markers = MeshFunction("size_t", inner_mesh, "markers.xml")
+    u = solve_poisson(inner_mesh, markers)
+    file = File("u.pvd")
+    file << u
+    plot(u, title="solution")
 
     interactive()
