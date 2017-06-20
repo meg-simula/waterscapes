@@ -30,15 +30,15 @@ def generate_brain_mesh():
     cistern1 = Point(origin.x() + r3, origin.y() - r1)
     cistern2 = Point(origin.x() - r3, origin.y())
 
+    parenchyma   = Circle(origin, r1)
+    ventricles   = Circle(origin, r2)
+    aqueduct     = Rectangle(cistern1, cistern2)
+
     # Define white matter regions
     white = Circle(origin, r4)
     cistern3 = Point(origin.x() + r3 + r5, origin.y() - r1)
     cistern4 = Point(origin.x() - r3 - r5, origin.y())
     aqueduct_white = Rectangle(cistern3, cistern4) # white matter around the aqueduct
-    
-    parenchyma   = Circle(origin, r1)
-    ventricles   = Circle(origin, r2)
-    aqueduct     = Rectangle(cistern1, cistern2)
 
     # white and grey matter geometries
     geometry_grey = parenchyma - white - aqueduct_white
@@ -59,9 +59,6 @@ def generate_brain_mesh():
     rectangle.set_subdomain(1, geometry_grey)
     rectangle.set_subdomain(2, geometry_white)
 
-    # NOTE, leaving the next line just in case it is useful in the future
-    #white_matter = Expression("((x[0]*x[0] + x[1]*x[1] <= r4*r4) || ((-a <= x[0]) && (x[0] <= a) && (-r1 <= x[1]) && (x[1] <= 0))) ? 2 : 1", r4 = r4, a = r3 + r5, r1 = r1, degree = 2)
-    
     # Create mesh, N controls the resolution (N higher -> more cells)
     N = 25
     outer_mesh = generate_mesh(rectangle, N)
@@ -89,6 +86,24 @@ def generate_brain_mesh():
     File("markers.pvd") << whitegrey_markers
     File("markers.xml") << whitegrey_markers
 
+    # create boundary IDs
+    boundary_markers = FacetFunction("size_t", inner_mesh, value = 0)
+    eps = 1.0e-3 #NOTE: this tolerance is really high, but otherwise it cannot find the boundaries, odd.
+    # ventricle boundary
+    ventricle_bnd = CompiledSubDomain("(sqrt(pow(x[0],2) + pow(x[1],2)) < r + eps) && (sqrt(pow(x[0],2) + pow(x[1],2)) > r - eps) && on_boundary", r = r2, eps = eps)
+    # subaracnoidal space boundary
+    SAS_bnd       = CompiledSubDomain("(sqrt(pow(x[0],2) + pow(x[1],2)) < r + eps) && (sqrt(pow(x[0],2) + pow(x[1],2)) > r - eps) && on_boundary", r = r1, eps = eps)
+    # aqueduct boundary
+    aqueduct_bnd  = CompiledSubDomain("((x[0] <= xleft + eps) && (x[0] >= xleft - eps)) || ((x[0] <= xright + eps) && (x[0] >= xright - eps)) && (x[1] <= 0.0) && (x[1] >= ybottom) && on_boundary", xleft = -r3, xright = r3, ybottom = -r1, eps = eps)
+
+    ventricle_bnd.mark(boundary_markers, 1)
+    SAS_bnd.mark(boundary_markers, 2)
+    aqueduct_bnd.mark(boundary_markers, 3)
+
+    # save boundary IDs to pvd and xml
+    File("boundary_markers.pvd") << boundary_markers
+    File("boundary_markers.xml") << boundary_markers
+
     plot(outer_mesh, title="outer mesh")
     plot(inner_mesh, title="inner mesh")
     
@@ -107,7 +122,7 @@ def generate_brain_mesh():
 
     return (inner_mesh, outer_mesh)
     
-def solve_poisson(mesh, markers):
+def solve_poisson(mesh, markers, boundary_markers):
     """Solve basic Poisson problem on inner brain mesh with piecewise
        constant diffusion coefficient (1 on the white matter and 2 on
        the grey matter
@@ -127,7 +142,7 @@ def solve_poisson(mesh, markers):
     f = Expression("pow(x[0] - 0.5, 2)", degree=2)
     L = f*v*dx()
 
-    bc = DirichletBC(V, 0.0, "on_boundary")
+    bc = [DirichletBC(V, 0.0, boundary_markers, 1), DirichletBC(V, Constant(200.), boundary_markers, 2)]
 
     u = Function(V)
     solve(a == L, u, bc)
@@ -148,7 +163,8 @@ if __name__ == "__main__":
 
     # test only on the inner brain mesh
     markers = MeshFunction("size_t", inner_mesh, "markers.xml")
-    u = solve_poisson(inner_mesh, markers)
+    boundary_markers = MeshFunction("size_t",  inner_mesh, "boundary_markers.xml")
+    u = solve_poisson(inner_mesh, markers, boundary_markers)
     file = File("u.pvd")
     file << u
     plot(u, title="solution")
