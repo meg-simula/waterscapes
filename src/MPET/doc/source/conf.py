@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # mpet documentation build configuration file, created by
-# sphinx-quickstart on Wed Jun 21 14:32:09 2017.
+# sphinx-quickstart on Wed Jun 21 14:39:39 2017.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
@@ -50,8 +50,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'mpet'
-copyright = u'2017, Eleonora Piersanti'
-author = u'Eleonora Piersanti'
+copyright = u'2017, E. Piersanti'
+author = u'E. Piersanti'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -226,7 +226,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'mpet.tex', u'mpet Documentation',
-     u'Eleonora Piersanti', 'manual'),
+     u'E. Piersanti', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

@@ -1,14 +1,27 @@
-# Dependencies:
+How to generate the documentation from scratch
 
-* FEniCS (www.fenicsproject.org) 2016.2 or later
-* cbcpost (April 19 2016 or later)
+1. Make sure you have Sphinx installed:
 
-# To install:
-python setup.py install --prefix=/your/favorite/folder
+   http://www.sphinx-doc.org/en/stable/index.html
 
-# For instance
-python setup.py install --user
+2. From top level MPET, create directory 'doc:
 
-# If you don't want to install globally, just add mpet to your
-# PYTHONPATH via:
-export PYTHONPATH=`pwd`:$PYTHONPATH
+   mkdir doc
+
+3. From top level MPET directory, run sphinx-quickstart
+
+   sphinx-quickstart
+
+   and answer questions. Use doc as the "root path for the
+   documentation" and make sure to press y for autodoc.
+
+   Sphinx will now initialize Makefiles etc for you in the doc
+   directory.
+
+4. Add Makefile, and files under doc/source to your version control
+   system.
+
+5. Add a generate doc target to the Makefile: for instance:
+
+   generate_api_docs:
+	sphinx-apidoc -o source/ -H mpet -A "E. Piersanti" -V 0.1 ../mpet/
