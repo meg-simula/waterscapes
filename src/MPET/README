@@ -25,3 +25,8 @@ How to generate the documentation from scratch
 
    generate_api_docs:
 	sphinx-apidoc -o source/ -H mpet -A "E. Piersanti" -V 0.1 ../mpet/
+
+   Make sure to have all the necessary modules in your PYTHONPATH
+   before running sphinx-apidox!
+
+6. Run make html to generate the actual html.
