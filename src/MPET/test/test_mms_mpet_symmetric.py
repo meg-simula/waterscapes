@@ -12,10 +12,8 @@ import time
 parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
-#parameters["form_compiler"]["representation"] = "uflacs"
 
 class FirstTest(MPET):
-
     """2 networks:
     -1st: extracellular CSF
     -2nd: capillary
@@ -267,7 +265,7 @@ def run_quick_convergence_test():
     # Iterate over mesh sizes/time steps and compute errors
     start = time.time()
     print "Start"
-    for j in [8, 16, 32, 64]:
+    for j in [8, 16, 32]:
         print "i = ", j
         (erru, errpL2, errpH1, h) = single_run(N=j, M=j)
         hs += [h]

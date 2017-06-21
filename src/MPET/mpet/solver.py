@@ -10,7 +10,37 @@ from rm_basis_L2 import *
 import resource
 
 # class SimpleSolver(Parameterized):
-class SimpleSolver():
+class SimpleSolver(object):
+    """This solver solves the multiple-network poroelasticity equations
+    (MPET): find a vector field (the displacement) u and the network
+    pressures p_a for a set of networks a = 1, ..., A such that:
+
+        - div ( sigma(u) - sum_{a} alpha_a p_a ) = f     (1)
+        c_a p_t + alpha_a div(u_t) - div K_a p_a = g_a   (2)
+
+    where 
+    
+      sigma(u) = 2*mu*eps(u) + lmbda div(u) I 
+
+    and eps(u) = sym(grad(u)), and mu and lmbda are the standard Lame
+    parameters. For each network a, c_a is the saturation coefficient,
+    alpha_a is the Biot-Willis coefficient, and K_a is the hydraulic
+    conductivity.
+
+    f is a given body force and g_a source(s) in network a.
+
+    See e.g. Tully and Ventikos, 2011 for further details on the
+    multiple-network poroelasticity equations.
+
+    Boundary conditions:
+
+    For the momentum equation (1):
+
+    For the continuity equations (2):
+
+    Initial conditions:
+    """
+
     def __init__(self, problem, params=None):
         "Create solver with given MPET problem and parameters."
         # Parameterized.__init__(self, params)
