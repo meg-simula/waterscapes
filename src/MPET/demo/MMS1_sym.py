@@ -1,7 +1,9 @@
+__author__ = "Eleonora Piersanti (eleonora@simula.no), 2016-2017"
+__all__ = []
+
+import pytest
+
 from mpet import *
-from numpy import zeros
-import sys
-import os
 import math
 from cbcpost import *
 import time
@@ -201,12 +203,11 @@ class FirstTest(MPET):
 def single_run(N=64, M=64):
     "N is the mesh size, M the number of time steps."
 
-    # Specify discretization parameters
+    # Define end time T and timestep dt
     T = 1.0
     dt = float(T/M)
-    # T = 1.0/float(M)
-    # dt = T
 
+    # Define material parameters in MPET equations
     L = 1.0
     Q = 1.0
     AA = 2
@@ -216,18 +217,19 @@ def single_run(N=64, M=64):
 
     E = 1.0
     nu = 0.35
-    # nu = 0.49999
     Incompressible = False
 
     # Create problem set-up
     print "N = ", N 
-    problem = FirstTest(dict(N=N, L=L, Q=Q, AA=AA, alphas=alphas,
-                             Ks=Ks, G=G, Incompressible=Incompressible, E=E, nu=nu))
+    params = dict(N=N, L=L, Q=Q, AA=AA, alphas=alphas,
+                  Ks=Ks, G=G, Incompressible=Incompressible, E=E, nu=nu)
+    problem = FirstTest(params)
 
     # Create solver
-    solver = SimpleSolver(problem, {"dt": dt, "T": T, "theta": 0.5, "direct_solver":True, "testing":False, "fieldsplit": False,\
-                                    "krylov_solver": {"monitor_convergence":False, "nonzero_initial_guess":True,\
-                                        "relative_tolerance": 1.e-6, "absolute_tolerance": 1.e-10, "divergence_limit": 1.e10}})
+    solver_params = {"dt": dt, "T": T, "theta": 0.5, "direct_solver": True, "testing": False, "fieldsplit": False,\
+                     "krylov_solver": {"monitor_convergence":False, "nonzero_initial_guess":True,\
+                                       "relative_tolerance": 1.e-6, "absolute_tolerance": 1.e-10, "divergence_limit": 1.e10}}
+    solver = SimpleSolver(problem, solver_params)
 
     # Solve
     solutions = solver.solve_symmetric()
@@ -236,24 +238,19 @@ def single_run(N=64, M=64):
 
     u = U.split(deepcopy=True)[0]
     p = U.split(deepcopy=True)[1:AA+1]
-    print len(p)
-    Ve = VectorFunctionSpace(problem.mesh, "CG", 4)
-    Pe = FunctionSpace(problem.mesh, "CG", 4)
 
+    # Compute the errors between approximation and exact solutions
     uex, pex = problem.exact_solutions_expression(T)
     erru, errpL2, errpH1 = compute_error(u, p, uex, pex, problem.mesh)
 
     # Return errors and meshsize
     h = problem.mesh.hmax()
-    #h = L/N
-    #print h, erru, errpL2, errpH1
 
     return (erru, errpL2, errpH1, h)
 
-
 def convergence_rates(errors, hs):
-    rates = [(math.log(errors[i+1]/errors[i]))/(math.log(hs[i+1]/hs[i])) for i in range(len(hs)-1)]
-
+    rates = [(math.log(errors[i+1]/errors[i]))/(math.log(hs[i+1]/hs[i]))
+             for i in range(len(hs)-1)]
     return rates
 
 def run_quick_convergence_test():
@@ -300,17 +297,17 @@ def run_quick_convergence_test():
     end = time.time()
     print "Time_elapsed = ", end - start
 
-    # Add test:
-    for i in u_rates:
-        assert (i > 1.88), "H1 convergence in u failed"
-    for i in p0_ratesL2:
-        assert (i > 1.85), "L2 convergence in p0 failed"
-    for i in p1_ratesL2:
-        assert (i > 1.85), "L2 convergence in p1 failed"
-    for i in p0_ratesH1:
-        assert (i > 0.9), "H1 convergence in p0 failed"
-    for i in p1_ratesH1:
-        assert (i > 0.9), "H1 convergence in p1 failed"
+    # Test that convergence rates are in agreement with theoretical
+    # expectation asymptotically
+    assert (u_rates[-1] > 1.95), "H1 convergence in u failed"
+    assert (p0_ratesL2[-1] > 1.95), "L2 convergence in p0 failed"
+    assert (p1_ratesL2[-1] > 1.95), "L2 convergence in p1 failed"
+    assert (p0_ratesH1[-1] > 0.95), "H1 convergence in p0 failed"
+    assert (p1_ratesH1[-1] > 0.95), "H1 convergence in p1 failed"
+
+def test_convergence():
+    run_quick_convergence_test()
+
 
 if __name__ == "__main__":
 
