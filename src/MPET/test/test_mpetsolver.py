@@ -66,9 +66,9 @@ def exact_solutions(params):
     # Compute g
     g = [None for i in range(A)]
     for i in range(A):
-        g[i] = c*diff(p[i], t) + alpha[i]*diff(div_u, t) \
-               - sum([diff(K[i]*grad_p[i][j], x[j]) for j in range(d)]) \
-               + sum(S[i][j]*(p[j] - p[i]) for j in range(A))
+        g[i] = - c*diff(p[i], t) - alpha[i]*diff(div_u, t) \
+               + sum([diff(K[i]*grad_p[i][j], x[j]) for j in range(d)]) \
+               - sum(S[i][j]*(p[i] - p[j]) for j in range(A))
     g = [sympy.simplify(gi) for gi in g]
         
     # Print sympy expressions as c++ code
@@ -114,6 +114,7 @@ def test_single_run(n=8, M=8):
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
+    # Set-up solver
     params = dict(dt=dt)
     solver = MPETSolver(problem, params)
 
