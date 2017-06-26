@@ -232,6 +232,10 @@ def single_run(N=64, M=64):
     # Solve
     solutions = solver.solve_symmetric()
     for (U, t) in solutions:
+        plot(U.sub(0), key="u")
+        plot(U.sub(1), key="p0")
+        plot(U.sub(2), key="p1")
+
         pass
 
     u = U.split(deepcopy=True)[0]
@@ -317,3 +321,4 @@ if __name__ == "__main__":
 
     # Store all errors
     #main()
+    interactive()

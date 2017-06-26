@@ -35,11 +35,11 @@ def exact_solutions(params):
     t = sympy.symbols("t")
 
     # Define exact solutions u and p
-    u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t),
-         sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t)]
+    u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0),
+         sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
     p = []
     for i in range(A):
-        p += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t)]
+        p += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
 
     # Simplify symbolics 
     d = len(u)
@@ -75,7 +75,7 @@ def exact_solutions(params):
     u_str = [sympy.printing.ccode(u[i]) for i in range(d)]
     p_str = [sympy.printing.ccode(p[i]) for i in range(A)]
     f_str = [sympy.printing.ccode(f[i]) for i in range(d)]
-    g_str = [sympy.printing.ccode(f[i]) for i in range(d)]
+    g_str = [sympy.printing.ccode(g[i]) for i in range(A)]
     
     return (u_str, p_str, f_str, g_str)
     
@@ -118,15 +118,22 @@ def test_single_run(n=8, M=8):
     params = dict(dt=dt)
     solver = MPETSolver(problem, params)
 
-    # Set initial conditions, zero but just to illustrate
+    # Set initial conditions
     VP = solver.up_.function_space()
-    up0 = Function(VP)
-    solver.up_.assign(up0)
+    V = VP.sub(0).collapse()
+    assign(solver.up_.sub(0), interpolate(problem.u_bar, V))
+    for i in range(A):
+        Q = VP.sub(i+1).collapse()
+        assign(solver.up_.sub(i+1), interpolate(problem.p_bar[i], Q))
     
     # Solve
     solutions = solver.solve()
     for (up, t) in solutions:
         print "t =", t
+        plot(problem.g[0], mesh=mesh, key="g0")
+        plot(problem.g[1], mesh=mesh, key="g1")
+        plot(problem.f, mesh=mesh, key="f")
+
         plot(up.sub(0), key="u")
         plot(up.sub(1), key="p0")
         plot(up.sub(2), key="p1")
@@ -143,8 +150,3 @@ if __name__ == "__main__":
     # Just test a single run
     test_single_run(n=8, M=8)
 
-    # Run quick convergence test:
-    #run_quick_convergence_test()
-
-    # Store all errors
-    #main()
