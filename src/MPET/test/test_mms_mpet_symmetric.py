@@ -224,7 +224,7 @@ def single_run(N=64, M=64):
     problem = FirstTest(params)
 
     # Create solver
-    solver_params = {"dt": dt, "T": T, "theta": 0.5, "direct_solver": True, "testing": False, "fieldsplit": False,\
+    solver_params = {"dt": dt, "T": T, "theta": 1.0, "direct_solver": True, "testing": False, "fieldsplit": False,\
                      "krylov_solver": {"monitor_convergence":False, "nonzero_initial_guess":True,\
                                        "relative_tolerance": 1.e-6, "absolute_tolerance": 1.e-10, "divergence_limit": 1.e10}}
     solver = SimpleSolver(problem, solver_params)
@@ -241,6 +241,8 @@ def single_run(N=64, M=64):
     u = U.split(deepcopy=True)[0]
     p = U.split(deepcopy=True)[1:AA+1]
 
+    print "U.norm_l2 = ", U.vector().norm("l2")                      
+    
     # Compute the errors between approximation and exact solutions
     uex, pex = problem.exact_solutions_expression(T)
     erru, errpL2, errpH1 = compute_error(u, p, uex, pex, problem.mesh)

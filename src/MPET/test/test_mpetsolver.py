@@ -115,7 +115,7 @@ def test_single_run(n=8, M=8):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
-    params = dict(dt=dt)
+    params = dict(dt=dt, theta=1.0)
     solver = MPETSolver(problem, params)
 
     # Set initial conditions
@@ -139,6 +139,11 @@ def test_single_run(n=8, M=8):
         plot(up.sub(2), key="p1")
         pass
 
+    (u, p0, p1) = up.split()
+    print "\| u - u_h \|_0 = ", errornorm(problem.u_bar, u, "L2")
+    print "\| p0 - p0_h \|_0 = ", errornorm(problem.p_bar[0], p0, "L2")
+    print "\| p1 - p1_h \|_0 = ", errornorm(problem.p_bar[1], p1, "L2")
+    
     interactive()
     up_vec_l2_norm = 12.2519728885
     assert(abs(up.vector().norm("l2") - up_vec_l2_norm) < 1.e-10), \

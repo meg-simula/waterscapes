@@ -12,7 +12,9 @@ import resource
 def elastic_stress(u, E, nu):
     d = u.geometric_dimension()
     I = Identity(d)
-    s = E/(1.0 + nu)*sym(grad(u)) + nu*E/((1.0-2.0*nu)*(1.0+nu))*div(u)*I
+    mu = E/(2.0*((1.0 + nu)))
+    lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
+    s = 2*mu*sym(grad(u)) + lmbda*div(u)*I
     return s
 
 class MPETSolver(object):
@@ -269,6 +271,7 @@ class MPETSolver(object):
 
         # Start with up as up_, can help Krylov Solvers
         self.up.assign(self.up_)
+
         while float(time) < T:
 
             # Handle the different parts of the rhs a bit differently
