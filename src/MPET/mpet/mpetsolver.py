@@ -82,20 +82,51 @@ class MPETSolver(object):
         "Create solver with given MPET problem and parameters."
         self.problem = problem
 
-        # Redefine measures based on subdomain information provided by
-        # the problem
-        self.ds = Measure("ds", domain=self.problem.mesh,
-                          subdomain_data=self.problem.facet_domains)
-        self.dx = Measure('dx', domain=self.problem.mesh)
-
         # Update parameters if given
         self.params = self.default_params()
         if params is not None:
             self.params.update(params)
 
         # Initialize objects
-        self.initialize()
+        self.F = self.initialize()
 
+        # Exact left and right hand side
+
+        
+    def solve(self):
+        "."
+        
+        dt = self.params["dt"]
+        T = self.params["T"]
+        time = self.problem.time
+
+        (a, L) = system(self.F)
+
+        # Assemble left-hand side matrix
+        A = assemble(a)
+
+        solver = LUSolver(A)
+
+        self.up.assign(self.up_)
+        while float(time) < T:
+            
+            # Assemble vector
+            b = assemble(L)
+            
+            # Apply boundary conditions
+
+            # Solve
+            solver.solve(self.up.vector(), b)
+
+            yield self.up, float(time)
+
+            # Update previous solution
+            assign(self.up_, self.up)
+
+            # Update time
+            time.assign(float(time) + dt)
+            
+        
     @staticmethod
     def default_params():
         "Define default solver parameters."
@@ -119,14 +150,20 @@ class MPETSolver(object):
         # Extract mesh from problem
         mesh = self.problem.mesh
 
+        # Redefine measures based on subdomain information provided by
+        # the problem
+        #self.ds = Measure("ds", domain=self.problem.mesh,
+        #                  subdomain_data=self.problem.facet_domains)
+
         # Extract time and time step
         dt = Constant(self.params.dt)
-        t_ = Constant(self.params.t)
-        t = Constant(self.params.t + float(dt))
+        #t = self.problem.time
+        #t_ = Constant(self.params.t)
+        #t = Constant(self.params.t + float(dt))
         
         # Extract the number of networks
         # FIXME: Problem networks should be called just A
-        A = self.problem.params.AA
+        A = self.problem.params["A"]
 
         # Create function spaces 
         V = VectorElement("CG", mesh.ufl_cell(), self.params.u_degree)
@@ -136,8 +173,7 @@ class MPETSolver(object):
 
         # Create previous solution field(s) and extract previous
         # displacement solution u_ and pressures p_ = (p_1, ..., p_A)
-        self.up_ = Function(VW)
-        up_ = self.up_
+        up_ = Function(VW)
         u_ = split(up_)[0]
         p_ = split(up_)[1:]
 
@@ -157,49 +193,47 @@ class MPETSolver(object):
         theta = self.params.theta
         um = theta*u + (1.0 - theta)*u_
         pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in range(A)]
-
+        
         # Define geometry related objects
 
         # Extract material parameters from problem
-        E = self.problem.params.E           # Young's modulus
-        nu = self.problem.params.nu         # Poisson ratio
-        alphas = self.problem.params.alpha
-        K = self.problem.params.K
-        G = self.problem.params.G
+        E = self.problem.params["E"]           # Young's modulus
+        nu = self.problem.params["nu"]         # Poisson ratio
+        alpha = self.problem.params["alpha"]
+        K = self.problem.params["K"]
+        S = self.problem.params["S"]
+        c = self.problem.params["c"]
 
         # Define the extra/elastic stress
         sigma = lambda u: elastic_stress(u, E, nu)
 
         # First equation (elliptic)
-        F00 = inner(sigma(u), sym(grad(v)))*self.dx()
-        F01 = sum([-alpha[i]*p[i]*div(v) for i in range(A)])*self.dx()
-        f = self.problem.f(t)
-        F02 = - dot(f, v)*self.dx()
+        F00 = inner(sigma(u), sym(grad(v)))*dx()
+        F01 = sum([-alpha[i]*p[i]*div(v) for i in range(A)])*dx()
+        f = self.problem.f
+        F02 = - dot(f, v)*dx()
         F0 = F00 + F01 + F02
         
         # Second equation (parabolic)
-        F10 = sum([-alpha[i]*div(u-u_)*w[i] for i in range(A)])*self.dx()
+        F10 = sum([-alpha[i]*div(u-u_)*w[i] for i in range(A)])*dx()
         F11 = sum([-dt*K[i]*inner(grad(pm[i]), grad(w[i]))
-                   for i in range(A)])*self.dx()
-        F12 = sum([sum([-dt*G[j]*(pm[i] - pm[j])*w[i] for j in range(A)])
-                   for i in range(A)])*self.dx()
-
-        g_ = self.problem.g(t_)
-        g = self.problem.g(t)
-        gm = [(theta*g[i] + (1.0-theta)*g_[i]) for i in range(A)]
-        F13 = - sum([dt*gm[i]*w[i] for i in range(A)])*self.dx()
+                   for i in range(A)])*dx()
+        F12 = sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in range(A)])
+                   for i in range(A)])*dx()
+        g = self.problem.g
+        F13 = - sum([dt*g[i]*w[i] for i in range(A)])*dx()
 
         # Saturation coefficient 
-        c = self.problem.params.c
         F14 = sum([c*(p[i] - p_[i])*w[i] for i in range(A)])*dx()
         F1 = F10 + F11 + F12 + F13 + F14
 
         # Combined variational form (F = 0 to be solved)
         F = F0 + F1
 
-        # Add boundary conditions
-        #boundary_conditions_u = self.problem.boundary_conditions_u(time, time_dt, theta)
-        #boundary_conditions_p = self.problem.boundary_conditions_p(time, time_dt, theta)
+        self.up = Function(VW)
+        self.up_ = up_
+        
+        return F
 
         
         

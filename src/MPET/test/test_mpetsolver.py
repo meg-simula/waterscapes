@@ -13,10 +13,12 @@ parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
-class FirstTest(MPETProblem):
-    def __init__(self, params=None):
 
-        MPETProblem.__init__(self, params)
+class FirstTest(MPETProblem):
+
+    def __init__(self, mesh, time, params=None):
+
+        MPETProblem.__init__(self, mesh, time, params=params)
 
         # Create mesh
         x0 = Point(0.0, 0.0)
@@ -194,7 +196,7 @@ class FirstTest(MPETProblem):
             null = True
         return null
 
-def test_single_run(N=8, M=8):
+def test_single_run(n=8, M=8):
     "N is t_he mesh size, M the number of time steps."
 
     # Define end time T and timestep dt
@@ -202,32 +204,39 @@ def test_single_run(N=8, M=8):
     dt = float(T/M)
 
     # Define material parameters in MPET equations
-    L = 1.0
-    Q = 1.0
     A = 2
-    alphas = (1.0, 1.0)
-    Ks = (1.0, 1.0)
-    G = (1.0, 1.0)
-
+    c = 1.0
+    alpha = (1.0, 1.0)
+    K = (1.0, 1.0)
+    S = ((0.0, 1.0), (1.0, 0.0))
     E = 1.0
     nu = 0.35
-    Incompressible = False
 
-    # Create problem set-up
-    print "N = ", N 
-    params = dict(N=N, L=L, Q=Q, A=A, alphas=alphas,
-                  Ks=Ks, G=G, Incompressible=Incompressible, E=E, nu=nu)
-    problem = FirstTest(params)
+    params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
 
+    mesh = UnitSquareMesh(n, n)
+    time = Constant(0.0)
+
+    problem = MPETProblem(mesh, time, params=params)
+    problem.f = Expression(("t", "0.0"), t=time, degree=0)
+    problem.g = (Expression("2*t", t=time, degree=0),
+                 Expression("3*t", t=time, degree=0))
+    
     # Create solver
-    solver_params = {"dt": dt, "T": T, "theta": 0.5, "direct_solver": True, "testing": False, "fieldsplit": False,\
-                     "krylov_solver": {"monitor_convergence":False, "nonzero_initial_guess":True,\
-                                       "relative_tolerance": 1.e-6, "absolute_tolerance": 1.e-10, "divergence_limit": 1.e10}}
-    solver = MPETSolver(problem, solver_params)
+    #solver_params = {"dt": dt, "T": T, "theta": 0.5, "direct_solver": True, "testing": False, "fieldsplit": False,\
+    #"krylov_solver": {"monitor_convergence":False, "nonzero_initial_guess":True,\
+    #                               "relative_tolerance": 1.e-6, "absolute_tolerance": 1.e-10, "divergence_limit": 1.e10}}
+    solver = MPETSolver(problem)#, solver_params)
 
+    # Set initial conditions
+    VP = solver.up_.function_space()
+    up0 = Function(VP)
+    solver.up_.assign(up0)
+    
     # Solve
     solutions = solver.solve()
     for (U, t) in solutions:
+        print "t =", t
         pass
 
     U_vec_l2_norm = 12.2519728885
@@ -238,7 +247,7 @@ def test_single_run(N=8, M=8):
 if __name__ == "__main__":
 
     # Just test a single run
-    test_single_run(N=8, M=8)
+    test_single_run(n=8, M=8)
 
     # Run quick convergence test:
     #run_quick_convergence_test()
