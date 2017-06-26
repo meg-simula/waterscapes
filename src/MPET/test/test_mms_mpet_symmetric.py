@@ -310,10 +310,10 @@ def test_convergence():
 if __name__ == "__main__":
 
     # Just test a single run
-    # single_run(N=64, M=10)
+    single_run(N=8, M=8)
 
     # Run quick convergence test:
-    run_quick_convergence_test()
+    #run_quick_convergence_test()
 
     # Store all errors
     #main()

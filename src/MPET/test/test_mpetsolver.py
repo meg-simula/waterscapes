@@ -92,7 +92,7 @@ def test_single_run(n=8, M=8):
     c = 1.0
     alpha = (1.0, 1.0)
     K = (1.0, 1.0)
-    S = ((0.0, 1.0), (1.0, 0.0))
+    S = ((1.0, 1.0), (1.0, 1.0))
     E = 1.0
     nu = 0.35
     params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
@@ -114,7 +114,8 @@ def test_single_run(n=8, M=8):
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
-    solver = MPETSolver(problem)
+    params = dict(dt=dt)
+    solver = MPETSolver(problem, params)
 
     # Set initial conditions, zero but just to illustrate
     VP = solver.up_.function_space()

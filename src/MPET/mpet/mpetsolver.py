@@ -220,7 +220,7 @@ class MPETSolver(object):
         As = range(A)
         F = inner(sigma(u), sym(grad(v)))*dx() \
             - sum([-alpha[i]*p[i]*div(v) for i in As])*dx() \
-            + sum([c*(p[i] - p_[i])*w[i] for i in As])*dx() \
+            + sum([- c*(p[i] - p_[i])*w[i] for i in As])*dx() \
             + sum([-alpha[i]*div(u-u_)*w[i] for i in As])*dx() \
             + sum([-dt*K[i]*inner(grad(pm[i]), grad(w[i])) for i in As])*dx() \
             + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \
@@ -279,6 +279,7 @@ class MPETSolver(object):
             # (when theta = 0.5)
             t_theta = float(time) + theta*float(dt)
             time.assign(t_theta)                
+            print "t_theta = ", float(time)
 
             # Assemble time-dependent rhs for parabolic equations
             for L1i in L1: 
@@ -288,7 +289,8 @@ class MPETSolver(object):
             # Set t to "t"
             t = float(time) + (1.0 - theta)*float(dt)
             time.assign(t)
-
+            print "time = ", float(time)
+            
             # Assemble time-dependent rhs for elliptic equations
             b0 = assemble(L0)    
             b.axpy(1.0, b0)
