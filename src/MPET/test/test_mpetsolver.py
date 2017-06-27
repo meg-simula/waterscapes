@@ -85,7 +85,7 @@ def exact_solutions(params):
     
     return (u_str, p_str, f_str, g_str)
     
-def test_single_run(n=8, M=8, theta=1.0):
+def single_run(n=8, M=8, theta=1.0):
 
     "N is t_he mesh size, M the number of time steps."
     
@@ -135,55 +135,58 @@ def test_single_run(n=8, M=8, theta=1.0):
     # Solve
     solutions = solver.solve()
     for (up, t) in solutions:
-        #print "t =", t
-        #plot(problem.g[0], mesh=mesh, key="g0")
-        #plot(problem.g[1], mesh=mesh, key="g1")
-        #plot(problem.f, mesh=mesh, key="f")
+        info("t = %g" % t)
 
-        #plot(up.sub(0), key="u")
-        #plot(up.sub(1), key="p0")
-        #plot(up.sub(2), key="p1")
+        plot(up.sub(0), key="u")
+        plot(up.sub(1), key="p0")
+        plot(up.sub(2), key="p1")
         pass
 
     (u, p0, p1) = up.split()
     p = (p0, p1)
     u_err_L2 = errornorm(problem.u_bar, u, "L2")
+    u_err_H1 = errornorm(problem.u_bar, u, "H1")
     p_err_L2 = [errornorm(problem.p_bar[i], p[i], "L2") for i in range(A)]
     p_err_H1 = [errornorm(problem.p_bar[i], p[i], "H1") for i in range(A)]
 
     h = mesh.hmin()
-    print "h_min = ", h
-    print "h_max = ", mesh.hmax()
-    return (u_err_L2, p_err_L2, p_err_H1, h)
+    return (u_err_L2, u_err_H1, p_err_L2, p_err_H1, h)
     
     #up_vec_l2_norm = 12.2519728885
     #assert(abs(up.vector().norm("l2") - up_vec_l2_norm) < 1.e-10), \
     #    "l2-norm of solution (%g) not matching reference (%g)." \
     #    % (up.vector().norm("l2"), up_vec_l2_norm)
 
-if __name__ == "__main__":
-
+def convergence_exp(theta):
     import time
     
     # Remove all output from FEniCS (except errors)
     set_log_level(WARNING)
 
     # Make containers for errors
-    u_errors = []
+    u_errorsL2 = []
+    u_errorsH1 = []
     p_errorsL2 = [[] for i in range(2)]
     p_errorsH1 = [[] for i in range(2)]
     hs = []
 
     # Iterate over mesh sizes/time steps and compute errors
     start = time.time()
-    theta = 1.0
     print "Start"
-    for (n, m) in zip([8, 16, 32], [4, 16, 64]):
+
+    if theta == 0.5:
+        ms = [4, 8, 16]
+    else:
+        ms = [4, 16, 64]
+
+    for (n, m) in zip([8, 16, 32], ms):
         print "(n, m) = ", (n, m)
-        (erru, errpL2, errpH1, h) = test_single_run(n, m, theta)
+        (erruL2, erruH1, errpL2, errpH1, h) = single_run(n, m, theta)
         hs += [h]
-        u_errors += [erru]
-        print "\| u(T)  - u_h(T) \|_1 = %r" % erru
+        u_errorsL2 += [erruL2]
+        u_errorsH1 += [erruH1]
+        print "\| u(T)  - u_h(T) \|_0 = %r" % erruL2
+        print "\| u(T)  - u_h(T) \|_1 = %r" % erruH1
         for (i, errpi) in enumerate(errpL2):
             print "\| p_%d(T)  - p_h_%d(T) \|_0 = %r" % (i, i, errpi)
             p_errorsL2[i] += [errpi]
@@ -192,14 +195,15 @@ if __name__ == "__main__":
             p_errorsH1[i] += [errpi]
 
     # Compute convergence rates:
-    # print "hs = ", hs
-    u_rates = convergence_rates(u_errors, hs)
+    u_ratesL2 = convergence_rates(u_errorsL2, hs)
+    u_ratesH1 = convergence_rates(u_errorsH1, hs)
     p0_ratesL2 = convergence_rates(p_errorsL2[0], hs)
     p1_ratesL2 = convergence_rates(p_errorsL2[1], hs)
     p0_ratesH1 = convergence_rates(p_errorsH1[0], hs)
     p1_ratesH1 = convergence_rates(p_errorsH1[1], hs)
 
-    print "u_rates = ", u_rates
+    print "u_ratesL2 = ", u_ratesL2
+    print "u_ratesH1 = ", u_ratesH1
     print "p0_ratesL2 = ", p0_ratesL2
     print "p1_ratesL2 = ", p1_ratesL2
     print "p0_ratesH1 = ", p0_ratesH1
@@ -210,8 +214,17 @@ if __name__ == "__main__":
 
     # Test that convergence rates are in agreement with theoretical
     # expectation asymptotically
-    #assert (u_rates[-1] > 1.95), "H1 convergence in u failed"
-    #assert (p0_ratesL2[-1] > 1.95), "L2 convergence in p0 failed"
-    #assert (p1_ratesL2[-1] > 1.95), "L2 convergence in p1 failed"
-    #assert (p0_ratesH1[-1] > 0.95), "H1 convergence in p0 failed"
-    #assert (p1_ratesH1[-1] > 0.95), "H1 convergence in p1 failed"
+    assert (u_ratesH1[-1] > 1.95), "H1 convergence in u failed"
+    assert (u_ratesL2[-1] > 1.90), "H1 convergence in u failed"
+    assert (p0_ratesL2[-1] > 1.90), "L2 convergence in p0 failed"
+    assert (p1_ratesL2[-1] > 1.90), "L2 convergence in p1 failed"
+    assert (p0_ratesH1[-1] > 0.95), "H1 convergence in p0 failed"
+    assert (p1_ratesH1[-1] > 0.95), "H1 convergence in p1 failed"
+
+def test_convergence():
+    convergence_exp(0.5)
+    convergence_exp(1.0)
+    
+if __name__ == "__main__":
+
+    test_convergence()
