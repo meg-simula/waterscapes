@@ -12,6 +12,6 @@ pipelines:
           - export PATH=$HOME/bin:$HOME/.local/bin:$PATH
           - source $HOME/fenics.env.conf
           - source /home/fenics/dolfin-adjoint.conf
-          - cd $BITBUCKET_CLONE_DIR
+          - cd $BITBUCKET_CLONE_DIR/src/MPET
           - pip2 install --no-cache-dir --upgrade --prefix=$FENICS_PREFIX .
           - python2 -m pytest -v test
