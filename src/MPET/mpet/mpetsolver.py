@@ -4,6 +4,8 @@ __author__ = "Eleonora Piersanti <eleonora@simula.no>"
 
 from dolfin import *
 
+from mpet.rm_basis_L2 import rigid_motions
+
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
@@ -144,7 +146,7 @@ class MPETSolver(object):
     @staticmethod
     def default_params():
         "Define default solver parameters."
-        params = Parameters("SimpleSolver")
+        params = Parameters("MPETSolver")
         params.add("dt", 0.05)
         params.add("t", 0.0)
         params.add("T", 1.0)
@@ -152,11 +154,11 @@ class MPETSolver(object):
         params.add("u_degree", 2)
         params.add("p_degree", 1)
         params.add("direct_solver", True)
-        params.add(KrylovSolver.default_parameters())
-        params.add(LUSolver.default_parameters())
-        params.add("testing", False)
-        params.add("fieldsplit", False)
-        params.add("symmetric", False)
+        #params.add(KrylovSolver.default_parameters())
+        #params.add(LUSolver.default_parameters())
+        #params.add("testing", False)
+        #params.add("fieldsplit", False)
+        #params.add("symmetric", False)
         return params
 
     def create_variational_forms(self):
@@ -173,27 +175,66 @@ class MPETSolver(object):
         # Create function spaces 
         V = VectorElement("CG", mesh.ufl_cell(), self.params.u_degree)
         W = FiniteElement("CG", mesh.ufl_cell(), self.params.p_degree)
-        M = MixedElement([V] + [W for i in range(A)])
+
+        u_nullspace = self.problem.displacement_nullspace
+        p_nullspace = self.problem.pressure_nullspace
+        dimQ = sum(p_nullspace)
+        if u_nullspace:
+            info("Nullspace for u detected")
+            Z = rigid_motions(self.problem.mesh)
+            dimZ = len(Z)
+            RU = VectorElement('R', mesh.ufl_cell(), 0, dimZ)
+            if dimQ:
+                info("Nullspace for p detected")
+                RP = [FiniteElement('R', mesh.ufl_cell(), 0)
+                      for i in range(dimQ)]
+                M = MixedElement([V] + [W for i in range(A)] + [RU] + RP)
+            else:
+                M = MixedElement([V] + [W for i in range(A)] + [RU])
+        else:
+            if dimQ:
+                info("Nullspace for p, but not for u detected")
+                RP = [FiniteElement('R', mesh.ufl_cell(), 0)
+                      for i in range(dimQ)]
+                M = MixedElement([V] + [W for i in range(A)] + RP)
+            else:
+                info("Constructing standard variational form")
+                M = MixedElement([V] + [W for i in range(A)])
+
         VW = FunctionSpace(mesh, M)
-        
         # Create previous solution field(s) and extract previous
         # displacement solution u_ and pressures p_ = (p_1, ..., p_A)
         up_ = Function(VW)
         u_ = split(up_)[0]
-        p_ = split(up_)[1:]
+        p_ = split(up_)[1:A+1]
         
         # Create trial functions and extract displacement u and pressure
         # trial functions p = (p_1, ..., p_A)
         up = TrialFunctions(VW)
         u = up[0]
-        p = up[1:]
+        p = up[1:A+1]
 
         # Create test functions and extract displacement u and pressure
         # test functions p = (p_1, ..., p_A)
         vw = TestFunctions(VW)
         v = vw[0]
-        w = vw[1:]
+        w = vw[1:A+1]
 
+        # Extract test and trial functions corresponding to the
+        # nullspace Lagrange multiplier
+        if u_nullspace == True:
+            z = up[-1-dimQ]
+            r = vw[-1-dimQ]
+            if dimQ:
+                p_null = up[-1-dimQ+1:]
+                w_null = vw[-1-dimQ+1:]
+        else:
+            if dimQ:
+                p_null = up[-1-dimQ+1:]
+                w_null = vw[-1-dimQ+1:]
+            else:
+                pass
+                
         # um and pm represent the solutions at time t + dt*theta
         theta = self.params.theta
         um = theta*u + (1.0 - theta)*u_
@@ -218,6 +259,8 @@ class MPETSolver(object):
         I = self.problem.I
         
         # Define variational form to be solved at each time-step.
+        dx = Measure("dx", domain=mesh)
+
         As = range(A)
         F = inner(sigma(u), sym(grad(v)))*dx() \
             + sum([-alpha[i]*p[i]*div(v) for i in As])*dx() \
@@ -227,10 +270,29 @@ class MPETSolver(object):
             + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \
                    for i in As])*dx() \
 
+        # Add orthogonality versus rigid motions if nullspace for the
+        # displacement
+        if u_nullspace:
+            for i in range(dimZ):
+                print r[i]
+
+            F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
+                 + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
+
+        # Add orthogonality versus constants if nullspace for the
+        # displacement
+        if dimQ:
+            i = 0
+            for (k, p_nullspace) in enumerate(self.problem.pressure_nullspace):
+                if p_nullspace:
+                    F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
+                    i += 1
+        
         # Add body force and traction boundary condition for momentum equation
+        NEUMANN_MARKER = 1
         markers = self.problem.momentum_boundary_markers
         dsm = Measure("ds", domain=mesh, subdomain_data=markers)
-        L0 = dot(f, v)*dx() + inner(s, v)*dsm(1)
+        L0 = dot(f, v)*dx() + inner(s, v)*dsm(NEUMANN_MARKER)
 
         # Add source and flux boundary conditions for continuity equations
         dsc = []
@@ -238,7 +300,7 @@ class MPETSolver(object):
         for i in As:
             markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
-            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](1)]
+            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
             
         # Set solution field(s)
         up = Function(VW)
@@ -246,7 +308,11 @@ class MPETSolver(object):
         return F, L0, L1, up_, up
 
     def solve(self):
-        "Solve given MPET problem, yield solutions at each time step."
+        """Solve given MPET problem, yield solutions at each time step.
+
+        Assumptions:
+        - Users should set self.up_ to be the initial conditions for up;
+        """
         
         dt = self.params["dt"]
         T = self.params["T"]
@@ -267,11 +333,11 @@ class MPETSolver(object):
         
         # Create solver
         solver = LUSolver(A)
-
+        
         # Start with up as up_, can help Krylov Solvers
         self.up.assign(self.up_)
 
-        while float(time) < T:
+        while (float(time) < (T - 1.e-10)):
 
             # Handle the different parts of the rhs a bit differently
             # due to theta-scheme
@@ -308,7 +374,7 @@ class MPETSolver(object):
             yield self.up, float(time)
 
             # Update previous solution up_ with current solution up
-            assign(self.up_, self.up)
+            self.up_.assign(self.up)
 
             # Update time
             time.assign(t)

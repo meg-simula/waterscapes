@@ -1,16 +1,15 @@
 mpet package
 ============
 
+Subpackages
+-----------
+
+.. toctree::
+
+    mpet.old
+
 Submodules
 ----------
-
-mpet.dolfinimport module
-------------------------
-
-.. automodule:: mpet.dolfinimport
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 mpet.error module
 -----------------
@@ -28,34 +27,10 @@ mpet.mpetproblem module
     :undoc-members:
     :show-inheritance:
 
-mpet.reusesolver module
------------------------
-
-.. automodule:: mpet.reusesolver
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-mpet.rm_basis_L2 module
------------------------
-
-.. automodule:: mpet.rm_basis_L2
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-mpet.solver module
-------------------
-
-.. automodule:: mpet.solver
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-mpet.solver_old module
+mpet.mpetsolver module
 ----------------------
 
-.. automodule:: mpet.solver_old
+.. automodule:: mpet.mpetsolver
     :members:
     :undoc-members:
     :show-inheritance:

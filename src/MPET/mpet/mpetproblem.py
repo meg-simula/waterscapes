@@ -11,9 +11,27 @@ class MPETProblem(object):
 
         Params will be taken from default_params and overridden
         by the values given to this constructor.
+
+        This problem class assumes that the following attributes are
+        set:
+
+        self.f : body force for the momentum equation (vector field)
+        self.g : list of body sources for the continuity equations
+
+        self.s : boundary force for the momentum equation (vector field)
+        self.I : list of boundary fluxes for the continuity equations
+
+        self.u_bar : essential boundary condition for u
+        self.p_bar : list of essential boundary conditions for p = (p_1, ..., p_A)
+
+        self.displacement_nullspace : boolean (True/False) if rigid motions should be eliminated
+        self.pressure_nullspace : list of boolean (True/False) if constants should be eliminated
         """
 
         self.mesh = mesh
+
+        # NB: Assumption that everything that depends on time does so
+        # through this Constant time
         self.time = time
 
         # Update problem parameters
@@ -33,7 +51,11 @@ class MPETProblem(object):
         self.u_bar = Constant((0.0, 0.0))
         self.p_bar = [Constant(0.0) for i in As]
 
-        # Default markers
+        # Default markers, one for the momentum equation and one for
+        # each network continuity equation
+
+        # Assumption: Neumann condition is marked by 1
+
         INVALID = 7101982
         markers = FacetFunction("size_t", mesh)
         markers.set_all(INVALID)
@@ -44,12 +66,15 @@ class MPETProblem(object):
             markers = FacetFunction("size_t", mesh)
             markers.set_all(INVALID)
             self.continuity_boundary_markers += [markers]
-        
+
+        self.displacement_nullspace = False
+        self.pressure_nullspace = list(False for i in As)
+            
     @classmethod
     def default_parameters(cls):
         "Define the set of parameters to define the problem."
         ps = {"A": 1.0,
-              "alpha": (1.0, ),
+              "alpha": (1.0,),
               "rho": 1.0,
               "nu": 0.479,
               "E": 584e-3,
