@@ -9,6 +9,12 @@ parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
+def convergence_rates(errors, hs):
+    import math
+    rates = [(math.log(errors[i+1]/errors[i]))/(math.log(hs[i+1]/hs[i]))
+             for i in range(len(hs)-1)]
+    return rates
+
 def exact_solutions(params):
     import math
     import sympy
@@ -79,12 +85,12 @@ def exact_solutions(params):
     
     return (u_str, p_str, f_str, g_str)
     
-def test_single_run(n=8, M=8):
+def test_single_run(n=8, M=8, theta=1.0):
 
     "N is t_he mesh size, M the number of time steps."
     
     # Define end time T and timestep dt
-    T = 1.0
+    T = 0.5
     dt = float(T/M)
 
     # Define material parameters in MPET equations
@@ -115,7 +121,7 @@ def test_single_run(n=8, M=8):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
-    params = dict(dt=dt, theta=1.0)
+    params = dict(dt=dt, theta=theta, T=T)
     solver = MPETSolver(problem, params)
 
     # Set initial conditions
@@ -129,29 +135,83 @@ def test_single_run(n=8, M=8):
     # Solve
     solutions = solver.solve()
     for (up, t) in solutions:
-        print "t =", t
-        plot(problem.g[0], mesh=mesh, key="g0")
-        plot(problem.g[1], mesh=mesh, key="g1")
-        plot(problem.f, mesh=mesh, key="f")
+        #print "t =", t
+        #plot(problem.g[0], mesh=mesh, key="g0")
+        #plot(problem.g[1], mesh=mesh, key="g1")
+        #plot(problem.f, mesh=mesh, key="f")
 
-        plot(up.sub(0), key="u")
-        plot(up.sub(1), key="p0")
-        plot(up.sub(2), key="p1")
+        #plot(up.sub(0), key="u")
+        #plot(up.sub(1), key="p0")
+        #plot(up.sub(2), key="p1")
         pass
 
     (u, p0, p1) = up.split()
-    print "\| u - u_h \|_0 = ", errornorm(problem.u_bar, u, "L2")
-    print "\| p0 - p0_h \|_0 = ", errornorm(problem.p_bar[0], p0, "L2")
-    print "\| p1 - p1_h \|_0 = ", errornorm(problem.p_bar[1], p1, "L2")
+    p = (p0, p1)
+    u_err_L2 = errornorm(problem.u_bar, u, "L2")
+    p_err_L2 = [errornorm(problem.p_bar[i], p[i], "L2") for i in range(A)]
+    p_err_H1 = [errornorm(problem.p_bar[i], p[i], "H1") for i in range(A)]
+
+    h = mesh.hmin()
+    print "h_min = ", h
+    print "h_max = ", mesh.hmax()
+    return (u_err_L2, p_err_L2, p_err_H1, h)
     
-    interactive()
-    up_vec_l2_norm = 12.2519728885
-    assert(abs(up.vector().norm("l2") - up_vec_l2_norm) < 1.e-10), \
-        "l2-norm of solution (%g) not matching reference (%g)." \
-        % (up.vector().norm("l2"), up_vec_l2_norm)
+    #up_vec_l2_norm = 12.2519728885
+    #assert(abs(up.vector().norm("l2") - up_vec_l2_norm) < 1.e-10), \
+    #    "l2-norm of solution (%g) not matching reference (%g)." \
+    #    % (up.vector().norm("l2"), up_vec_l2_norm)
 
 if __name__ == "__main__":
 
-    # Just test a single run
-    test_single_run(n=16, M=16)
+    import time
+    
+    # Remove all output from FEniCS (except errors)
+    set_log_level(WARNING)
 
+    # Make containers for errors
+    u_errors = []
+    p_errorsL2 = [[] for i in range(2)]
+    p_errorsH1 = [[] for i in range(2)]
+    hs = []
+
+    # Iterate over mesh sizes/time steps and compute errors
+    start = time.time()
+    theta = 1.0
+    print "Start"
+    for (n, m) in zip([8, 16, 32], [4, 16, 64]):
+        print "(n, m) = ", (n, m)
+        (erru, errpL2, errpH1, h) = test_single_run(n, m, theta)
+        hs += [h]
+        u_errors += [erru]
+        print "\| u(T)  - u_h(T) \|_1 = %r" % erru
+        for (i, errpi) in enumerate(errpL2):
+            print "\| p_%d(T)  - p_h_%d(T) \|_0 = %r" % (i, i, errpi)
+            p_errorsL2[i] += [errpi]
+        for (i, errpi) in enumerate(errpH1):
+            print "\| p_%d(T)  - p_h_%d(T) \|_1 = %r" % (i, i, errpi)
+            p_errorsH1[i] += [errpi]
+
+    # Compute convergence rates:
+    # print "hs = ", hs
+    u_rates = convergence_rates(u_errors, hs)
+    p0_ratesL2 = convergence_rates(p_errorsL2[0], hs)
+    p1_ratesL2 = convergence_rates(p_errorsL2[1], hs)
+    p0_ratesH1 = convergence_rates(p_errorsH1[0], hs)
+    p1_ratesH1 = convergence_rates(p_errorsH1[1], hs)
+
+    print "u_rates = ", u_rates
+    print "p0_ratesL2 = ", p0_ratesL2
+    print "p1_ratesL2 = ", p1_ratesL2
+    print "p0_ratesH1 = ", p0_ratesH1
+    print "p1_ratesH1 = ", p1_ratesH1
+
+    end = time.time()
+    print "Time_elapsed = ", end - start
+
+    # Test that convergence rates are in agreement with theoretical
+    # expectation asymptotically
+    #assert (u_rates[-1] > 1.95), "H1 convergence in u failed"
+    #assert (p0_ratesL2[-1] > 1.95), "L2 convergence in p0 failed"
+    #assert (p1_ratesL2[-1] > 1.95), "L2 convergence in p1 failed"
+    #assert (p0_ratesH1[-1] > 0.95), "H1 convergence in p0 failed"
+    #assert (p1_ratesH1[-1] > 0.95), "H1 convergence in p1 failed"
