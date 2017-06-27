@@ -221,7 +221,7 @@ class MPETSolver(object):
         # Define variational form to be solved at each time-step.
         As = range(A)
         F = inner(sigma(u), sym(grad(v)))*dx() \
-            - sum([-alpha[i]*p[i]*div(v) for i in As])*dx() \
+            + sum([-alpha[i]*p[i]*div(v) for i in As])*dx() \
             + sum([- c*(p[i] - p_[i])*w[i] for i in As])*dx() \
             + sum([-alpha[i]*div(u-u_)*w[i] for i in As])*dx() \
             + sum([-dt*K[i]*inner(grad(pm[i]), grad(w[i])) for i in As])*dx() \

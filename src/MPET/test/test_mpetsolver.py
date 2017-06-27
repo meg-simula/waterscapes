@@ -153,5 +153,5 @@ def test_single_run(n=8, M=8):
 if __name__ == "__main__":
 
     # Just test a single run
-    test_single_run(n=8, M=8)
+    test_single_run(n=16, M=16)
 
