@@ -1,7 +1,6 @@
 # Dependencies:
 
-* FEniCS (www.fenicsproject.org) 2016.2 or later
-* cbcpost (April 19 2016 or later)
+* FEniCS (www.fenicsproject.org) 2017.1 or later
 
 # To install:
 python setup.py install --prefix=/your/favorite/folder
