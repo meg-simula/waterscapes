@@ -1,5 +1,5 @@
-from dolfin import errornorm
-from dolfin import VectorFunctionSpace, FunctionSpace, interpolate
+from dolfinimport import errornorm
+from dolfinimport import VectorFunctionSpace, FunctionSpace, interpolate
 
 def compute_error(u0, p0, uex, pex, mesh):
     # V_ex = VectorFunctionSpace(mesh, "CG", 5)

@@ -1,15 +1,14 @@
-from dolfinimport import *
-import numpy as np
-#from block import *
-#from block.algebraic.petsc import *
-#from block.iterative import *
-from rm_basis_L2 import rigid_motions 
-import resource
+__author__ = "Eleonora Piersanti <eleonora@simula.no>"
+
+# Modified by Marie E. Rognes <meg@simula.no>, 2017
+
+from dolfin import *
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
 def elastic_stress(u, E, nu):
+    "Define the standard linear elastic constitutive equation."
     d = u.geometric_dimension()
     I = Identity(d)
     mu = E/(2.0*((1.0 + nu)))

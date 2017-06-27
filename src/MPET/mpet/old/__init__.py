@@ -7,6 +7,7 @@ To import the module, type::
 
 """
 
+from solver import *
 from mpetproblem import *
-from mpetsolver import *
 from error import *
+from mpetsolver import *
