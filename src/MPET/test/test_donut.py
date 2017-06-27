@@ -122,10 +122,10 @@ def constant_on_the_donut_nullspaces(n=8, M=8, theta=1.0):
         plot(up.sub(1), key="p0")
         plot(up.sub(2), key="p1")
 
-    interactive()
+    #interactive()
     
 def test_donut():
-    #constant_on_the_donut()
+    constant_on_the_donut()
     constant_on_the_donut_nullspaces()
     
 if __name__ == "__main__":
