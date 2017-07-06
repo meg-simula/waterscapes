@@ -247,6 +247,8 @@ class MPETSolver(object):
         K = self.problem.params["K"]
         S = self.problem.params["S"]
         c = self.problem.params["c"]
+        beta = self.problem.params["beta"]
+        p_robin = self.problem.params["p_robin"]
 
         # Define the extra/elastic stress
         sigma = lambda u: elastic_stress(u, E, nu)
@@ -290,6 +292,7 @@ class MPETSolver(object):
         
         # Add body force and traction boundary condition for momentum equation
         NEUMANN_MARKER = 1
+        ROBIN_MARKER = 2
         markers = self.problem.momentum_boundary_markers
         dsm = Measure("ds", domain=mesh, subdomain_data=markers)
         L0 = dot(f, v)*dx() + inner(s, v)*dsm(NEUMANN_MARKER)
@@ -300,7 +303,7 @@ class MPETSolver(object):
         for i in As:
             markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
-            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
+            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)] + dt*beta[i]*(p-p_robin[i])*dsc[i](ROBIN_MARKER)
             
         # Set solution field(s)
         up = Function(VW)

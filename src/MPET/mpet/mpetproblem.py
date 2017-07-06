@@ -46,7 +46,8 @@ class MPETProblem(object):
         self.s = Constant((0.0, 0.0))
         self.g = [Constant(0.0) for i in As]
         self.I = [Constant(0.0) for i in As]
-
+        self.beta = [Constant(0.0) for i in As]
+        self.p_robin = [Constant(0.0) for i in As]
         # Default values for Dirichlet boundary conditions
         self.u_bar = Constant((0.0, 0.0))
         self.p_bar = [Constant(0.0) for i in As]
@@ -55,6 +56,7 @@ class MPETProblem(object):
         # each network continuity equation
 
         # Assumption: Neumann condition is marked by 1
+        # Assumption: Robin conditions is maked by 2
 
         INVALID = 7101982
         markers = FacetFunction("size_t", mesh)
