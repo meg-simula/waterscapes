@@ -22,7 +22,7 @@ def generate_brain_mesh():
 
     r1 = 10.0 # Outer radius (cm)
     r2 = 3.0 # Inner radius  (cm)
-    r3 = 0.5 # Aqueduct radius
+    r3 = 0.2 # Aqueduct radius
     r4 = (r1 - r2)*0.8 + r2 # white matter radius
     r5 = (r1 - r2)*0.2 # distance between aqueduct and grey matter
 
@@ -124,7 +124,7 @@ def generate_brain_mesh():
     
 def solve_poisson(mesh, markers, boundary_markers):
     """Solve basic Poisson problem on inner brain mesh with piecewise
-       constant diffusion coefficient (1 on the white matter and 2 on
+       constant diffusion coefficient (0 on the white matter and 1 on
        the grey matter
     """
     
