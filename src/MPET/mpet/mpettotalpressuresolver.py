@@ -264,9 +264,9 @@ class MPETSolver(object):
         As = range(A)
         F = inner(sigma_tot, sym(grad(v)))*dx() \
             + (-div(u) + 1./lmbda*(p[0] + sum([alpha[i]*p[i+1]for i in As])*w[0]*dx()))
-            + sum([-alpha[i]*p[i]*div(v) for i in As])*dx() \
-            + sum([- c*(p[i] - p_[i])*w[i] for i in As])*dx() \
-            + sum([-alpha[i]*div(u-u_)*w[i] for i in As])*dx() \
+            + sum([-c*(p[i+1] - p_[i+1])*w[i+1] for i in As])*dx() \
+            + sum([alpha[i]/lmbda*(p[0]-p_[0])*w[i+1] for i in As])*dx() \
+            + sum([alpha[i]*alpha[i]/lmbda*(p[i+1]-p_[i+1])*w[i+1] for i in As])*dx() \
             + sum([-dt*K[i]*inner(grad(pm[i]), grad(w[i])) for i in As])*dx() \
             + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \
                    for i in As])*dx() \
