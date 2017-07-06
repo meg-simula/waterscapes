@@ -247,8 +247,6 @@ class MPETSolver(object):
         K = self.problem.params["K"]
         S = self.problem.params["S"]
         c = self.problem.params["c"]
-        beta = self.problem.params["beta"]
-        p_robin = self.problem.params["p_robin"]
 
         # Define the extra/elastic stress
         sigma = lambda u: elastic_stress(u, E, nu)
@@ -259,7 +257,8 @@ class MPETSolver(object):
         g = self.problem.g
         s = self.problem.s
         I = self.problem.I
-        
+        beta = self.problem.beta
+        p_robin = self.problem.p_robin
         # Define variational form to be solved at each time-step.
         dx = Measure("dx", domain=mesh)
 
