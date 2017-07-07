@@ -113,10 +113,11 @@ class MPETSolver(object):
             self.params.update(params)
 
         # Initialize objects and store
-        F, L0, L1, up_, up = self.create_variational_forms()
+        F, L0, L1, L2, up_, up = self.create_variational_forms()
         self.F = F
         self.L0 = L0
         self.L1 = L1
+        self.L2 = L2
         self.up_ = up_
         self.up = up
 
@@ -270,7 +271,7 @@ class MPETSolver(object):
             + sum([-dt*K[i]*inner(grad(pm[i]), grad(w[i])) for i in As])*dx() \
             + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \
                    for i in As])*dx() \
-
+            
         # Add orthogonality versus rigid motions if nullspace for the
         # displacement
         if u_nullspace:
@@ -299,15 +300,17 @@ class MPETSolver(object):
         # Add source and flux boundary conditions for continuity equations
         dsc = []
         L1 = []
+        L2 = []
         for i in As:
             markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
-            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)] + dt*beta[i]*(p-p_robin[i])*dsc[i](ROBIN_MARKER)
-            
+            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
+                  
+            L2 += [dt*beta[i]*(pm[i]-p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)]
         # Set solution field(s)
         up = Function(VW)
         
-        return F, L0, L1, up_, up
+        return F, L0, L1, L2, up_, up
 
     def solve(self):
         """Solve given MPET problem, yield solutions at each time step.
@@ -325,13 +328,18 @@ class MPETSolver(object):
         (a, L) = system(self.F)
         L0 = self.L0
         L1 = self.L1
-        
+        L2 = self.L2
         # Extract essential bcs
         [bcs0, bcs1] = self.create_dirichlet_bcs()
         bcs = bcs0 + bcs1
         
         # Assemble left-hand side matrix
+                
         A = assemble(a)
+
+        for L2i in L2: 
+                A2 = assemble(lhs(L2i))
+                A.axpy(1.0, A2, True)
         
         # Create solver
         solver = LUSolver(A)
@@ -355,7 +363,10 @@ class MPETSolver(object):
             for L1i in L1: 
                 b1 = assemble(L1i)
                 b.axpy(1.0, b1)
-                
+            
+            for L2i in L2: 
+                b2 = assemble(rhs(L2i))
+                b.axpy(1.0, b2)    
             # Set t to "t"
             t = float(time) + (1.0 - theta)*float(dt)
             time.assign(t)
