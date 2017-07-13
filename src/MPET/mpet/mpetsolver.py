@@ -306,7 +306,7 @@ class MPETSolver(object):
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
             L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
                   
-            L2 += [dt*beta[i]*(pm[i]-p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)]
+            L2 -= [dt*beta[i]*(pm[i]-p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)]
         # Set solution field(s)
         up = Function(VW)
         
