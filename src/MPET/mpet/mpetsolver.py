@@ -306,7 +306,7 @@ class MPETSolver(object):
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
             L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
                   
-            L2 -= [dt*beta[i]*(pm[i]-p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)]
+            L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)]
         # Set solution field(s)
         up = Function(VW)
         
@@ -335,11 +335,11 @@ class MPETSolver(object):
         
         # Assemble left-hand side matrix
                 
-        A = assemble(a)
+        A = assemble(a) 
 
         for L2i in L2: 
                 A2 = assemble(lhs(L2i))
-                A.axpy(1.0, A2, True)
+                A.axpy(1.0, A2, False)
         
         # Create solver
         solver = LUSolver(A)
