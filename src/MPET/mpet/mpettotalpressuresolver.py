@@ -9,12 +9,12 @@ from mpet.rm_basis_L2 import rigid_motions
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
-def total_stress(u, p, E, nu):
+def elastic_stress(u, E, nu):
     "Define the standard linear elastic constitutive equation."
     d = u.geometric_dimension()
     I = Identity(d)
-    mu = E/(2.0*((1.0 + nu)))
-    s = 2*mu*sym(grad(u)) + p[0]*I
+    lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
+    s = 2*mu*sym(grad(u)) + lmbda*div(u)*I
     return s
 
 class MPETSolver(object):
@@ -22,11 +22,14 @@ class MPETSolver(object):
     (MPET): find a vector field (the displacement) u and the network
     pressures p_a for a set of networks a = 1, ..., A such that:
 
-        -div ( 2mu eps(u) - p_0 I) = f           (1)
-        -div(u) + 1/lambda (p0 + \sum_{a} alpha_a p_a) = 0
-        -c_a p_a_t - alpha_a/lambda (p0_t + \sum_{a} p_a_t) + div K_a grad p_a + sum_{b} S_ab (p_b - p_a) = g_a   (2)
+        - div ( sigma(u) - sum_{a} alpha_a p_a I) = f           (1)
+        c_a p_a_t + alpha_a div(u_t) - div K_a grad p_a + sum_{b} S_ab (p_b - p_a) = g_a   (2)
 
-    where eps(u) = sym(grad(u)), and mu and lmbda are the standard Lame
+    where 
+    
+      sigma(u) = 2*mu*eps(u) + lmbda div(u) I 
+
+    and eps(u) = sym(grad(u)), and mu and lmbda are the standard Lame
     parameters. For each network a, c_a is the saturation coefficient,
     alpha_a is the Biot-Willis coefficient, and K_a is the hydraulic
     conductivity.
@@ -80,8 +83,6 @@ class MPETSolver(object):
 
       p_a(x, t_0) = p0_a(x) if c_a > 0
 
-      p_T(x, t_0) = -\lambda div(u(x, t0)) + \sum_a p_a(x, t0)if c_a > 0
-
     Variational formulation (using Einstein summation notation over a
     in the elliptic equation below):
 
@@ -111,10 +112,11 @@ class MPETSolver(object):
             self.params.update(params)
 
         # Initialize objects and store
-        F, L0, L1, up_, up = self.create_variational_forms()
+        F, L0, L1, L2, up_, up = self.create_variational_forms()
         self.F = F
         self.L0 = L0
         self.L1 = L1
+        self.L2 = L2
         self.up_ = up_
         self.up = up
 
@@ -186,18 +188,18 @@ class MPETSolver(object):
                 info("Nullspace for p detected")
                 RP = [FiniteElement('R', mesh.ufl_cell(), 0)
                       for i in range(dimQ)]
-                M = MixedElement([V] + [W for i in range(A+2)] + [RU] + RP)
+                M = MixedElement([V] + [W for i in range(A+1)] + [RU] + RP)
             else:
-                M = MixedElement([V] + [W for i in range(A+2)] + [RU])
+                M = MixedElement([V] + [W for i in range(A+1)] + [RU])
         else:
             if dimQ:
                 info("Nullspace for p, but not for u detected")
                 RP = [FiniteElement('R', mesh.ufl_cell(), 0)
                       for i in range(dimQ)]
-                M = MixedElement([V] + [W for i in range(A+2)] + RP)
+                M = MixedElement([V] + [W for i in range(A+1)] + RP)
             else:
                 info("Constructing standard variational form")
-                M = MixedElement([V] + [W for i in range(A+2)])
+                M = MixedElement([V] + [W for i in range(A+1)])
 
         VW = FunctionSpace(mesh, M)
         # Create previous solution field(s) and extract previous
@@ -236,7 +238,7 @@ class MPETSolver(object):
         # um and pm represent the solutions at time t + dt*theta
         theta = self.params.theta
         um = theta*u + (1.0 - theta)*u_
-        pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in range(A+2)]
+        pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in range(1,A+1)]
         
         # Extract material parameters from problem
         E = self.problem.params["E"]          
@@ -246,10 +248,8 @@ class MPETSolver(object):
         S = self.problem.params["S"]
         c = self.problem.params["c"]
 
-        lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
-
         # Define the extra/elastic stress
-        sigma_tot = lambda u: total_stress(u, p, E, nu)
+        sigma = lambda u: elastic_stress(u, E, nu)
 
         # Extract body force f and sources g, boundary traction s and
         # boundary flux I from problem description
@@ -257,20 +257,24 @@ class MPETSolver(object):
         g = self.problem.g
         s = self.problem.s
         I = self.problem.I
-        
+        beta = self.problem.beta
+        p_robin = self.problem.p_robin
         # Define variational form to be solved at each time-step.
         dx = Measure("dx", domain=mesh)
 
+        mu = E/(2.0*((1.0 + nu)))
+        lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
         As = range(A)
-        F = inner(sigma_tot, sym(grad(v)))*dx() \
-            + (-div(u) + 1./lmbda*(p[0] + sum([alpha[i]*p[i+1]for i in As])*w[0]*dx()))
-            + sum([-c*(p[i+1] - p_[i+1])*w[i+1] for i in As])*dx() \
-            + sum([alpha[i]/lmbda*(p[0]-p_[0])*w[i+1] for i in As])*dx() \
-            + sum([alpha[i]*alpha[i]/lmbda*(p[i+1]-p_[i+1])*w[i+1] for i in As])*dx() \
-            + sum([-dt*K[i]*inner(grad(pm[i]), grad(w[i])) for i in As])*dx() \
-            + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \
+        F = inner((u), sym(grad(v)))*dx() \
+            - p[0]*div(v)*dx()\
+            + (-div(u) + 1./lmbda*(sum([alpha[i+1]*p[i+1] for i in As]) - p[0]))*w[0]*dx()\
+            + sum([-c*(p[i] - p_[i])*w[i] for i in As])*dx()\
+            + sum([ alpha[i]/lmbda*div(p[0]-p_[0])*w[i+1] for i in As])*dx() \
+            + sum([-alpha[i]*alpha[i]/lmbda*(p[i+1]-p_[i+1])*w[i+1] for i in As])*dx() \
+            + sum([-dt*K[i]*inner(grad(pm[i+1]), grad(w[i+1])) for i in As])*dx() \
+            + sum([sum([-dt*S[i+1][j+1]*(pm[i+1] - pm[j+1])*w[i+1] for j in As]) \
                    for i in As])*dx() \
-
+            
         # Add orthogonality versus rigid motions if nullspace for the
         # displacement
         if u_nullspace:
@@ -291,6 +295,7 @@ class MPETSolver(object):
         
         # Add body force and traction boundary condition for momentum equation
         NEUMANN_MARKER = 1
+        ROBIN_MARKER = 2
         markers = self.problem.momentum_boundary_markers
         dsm = Measure("ds", domain=mesh, subdomain_data=markers)
         L0 = dot(f, v)*dx() + inner(s, v)*dsm(NEUMANN_MARKER)
@@ -298,15 +303,17 @@ class MPETSolver(object):
         # Add source and flux boundary conditions for continuity equations
         dsc = []
         L1 = []
+        L2 = []
         for i in As:
             markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
             L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
-            
+                  
+            L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)]
         # Set solution field(s)
         up = Function(VW)
         
-        return F, L0, L1, up_, up
+        return F, L0, L1, L2, up_, up
 
     def solve(self):
         """Solve given MPET problem, yield solutions at each time step.
@@ -324,13 +331,18 @@ class MPETSolver(object):
         (a, L) = system(self.F)
         L0 = self.L0
         L1 = self.L1
-        
+        L2 = self.L2
         # Extract essential bcs
         [bcs0, bcs1] = self.create_dirichlet_bcs()
         bcs = bcs0 + bcs1
         
         # Assemble left-hand side matrix
-        A = assemble(a)
+                
+        A = assemble(a) 
+
+        for L2i in L2: 
+                A2 = assemble(lhs(L2i))
+                A.axpy(1.0, A2, False)
         
         # Create solver
         solver = LUSolver(A)
@@ -354,7 +366,10 @@ class MPETSolver(object):
             for L1i in L1: 
                 b1 = assemble(L1i)
                 b.axpy(1.0, b1)
-                
+            
+            for L2i in L2: 
+                b2 = assemble(rhs(L2i))
+                b.axpy(1.0, b2)    
             # Set t to "t"
             t = float(time) + (1.0 - theta)*float(dt)
             time.assign(t)
