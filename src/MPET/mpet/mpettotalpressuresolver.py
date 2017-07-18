@@ -265,10 +265,11 @@ class MPETSolver(object):
         mu = E/(2.0*((1.0 + nu)))
         lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
         As = range(A)
-        F = inner((u), sym(grad(v)))*dx() \
+
+        F = inner(2*mu*sym(grad(u)), sym(grad(v)))*dx() \
             - p[0]*div(v)*dx()\
             + (-div(u) + 1./lmbda*(sum([alpha[i+1]*p[i+1] for i in As]) - p[0]))*w[0]*dx()\
-            + sum([-c*(p[i] - p_[i])*w[i] for i in As])*dx()\
+            + sum([-c*(p[i+1] - p_[i+1])*w[i+1] for i in As])*dx()\
             + sum([ alpha[i]/lmbda*div(p[0]-p_[0])*w[i+1] for i in As])*dx() \
             + sum([-alpha[i]*alpha[i]/lmbda*(p[i+1]-p_[i+1])*w[i+1] for i in As])*dx() \
             + sum([-dt*K[i]*inner(grad(pm[i+1]), grad(w[i+1])) for i in As])*dx() \
@@ -290,7 +291,7 @@ class MPETSolver(object):
             i = 0
             for (k, p_nullspace) in enumerate(self.problem.pressure_nullspace):
                 if p_nullspace:
-                    F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
+                    F += p[k+1]*w_null[i]*dx() + p_null[i]*w[k+1]*dx()
                     i += 1
         
         # Add body force and traction boundary condition for momentum equation
@@ -307,9 +308,9 @@ class MPETSolver(object):
         for i in As:
             markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
-            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
+            L1 += [dt*g[i]*w[i+1]*dx() + dt*I[i]*w[i+1]*dsc[i](NEUMANN_MARKER)]
                   
-            L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)]
+            L2 += [dt*beta[i]*(-pm[i+1]+p_robin[i])*w[i+1]*dsc[i](ROBIN_MARKER)]
         # Set solution field(s)
         up = Function(VW)
         
