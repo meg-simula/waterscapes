@@ -9,6 +9,7 @@ To import the module, type::
 
 from mpetproblem import *
 from mpetsolver import *
+from mpettotalpressuresolver import *
 from error import *
 
 from rm_basis_L2 import rigid_motions

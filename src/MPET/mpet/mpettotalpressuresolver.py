@@ -9,15 +9,7 @@ from mpet.rm_basis_L2 import rigid_motions
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
-def elastic_stress(u, E, nu):
-    "Define the standard linear elastic constitutive equation."
-    d = u.geometric_dimension()
-    I = Identity(d)
-    lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
-    s = 2*mu*sym(grad(u)) + lmbda*div(u)*I
-    return s
-
-class MPETSolver(object):
+class MPETTotalPressureSolver(object):
     """This solver solves the multiple-network poroelasticity equations
     (MPET): find a vector field (the displacement) u and the network
     pressures p_a for a set of networks a = 1, ..., A such that:
@@ -137,9 +129,9 @@ class MPETSolver(object):
         # Boundary conditions for continuity equation
         bcs1 = []
         p_bar = self.problem.p_bar
-        for i in range(self.problem.params["A"]):
+        for i in range(1,self.problem.params["A"]):
             markers = self.problem.continuity_boundary_markers[i]
-            bcs1 += [DirichletBC(VP.sub(i+2), p_bar[i], markers, 0)]
+            bcs1 += [DirichletBC(VP.sub(i+1), p_bar[i], markers, 0)]
 
         return [bcs0, bcs1]
     
@@ -188,37 +180,37 @@ class MPETSolver(object):
                 info("Nullspace for p detected")
                 RP = [FiniteElement('R', mesh.ufl_cell(), 0)
                       for i in range(dimQ)]
-                M = MixedElement([V] + [W for i in range(A+1)] + [RU] + RP)
+                M = MixedElement([V] + [W for i in range(A)] + [RU] + RP)
             else:
-                M = MixedElement([V] + [W for i in range(A+1)] + [RU])
+                M = MixedElement([V] + [W for i in range(A)] + [RU])
         else:
             if dimQ:
                 info("Nullspace for p, but not for u detected")
                 RP = [FiniteElement('R', mesh.ufl_cell(), 0)
                       for i in range(dimQ)]
-                M = MixedElement([V] + [W for i in range(A+1)] + RP)
+                M = MixedElement([V] + [W for i in range(A)] + RP)
             else:
                 info("Constructing standard variational form")
-                M = MixedElement([V] + [W for i in range(A+1)])
+                M = MixedElement([V] + [W for i in range(A)])
 
         VW = FunctionSpace(mesh, M)
         # Create previous solution field(s) and extract previous
         # displacement solution u_ and pressures p_ = (p_1, ..., p_A)
         up_ = Function(VW)
         u_ = split(up_)[0]
-        p_ = split(up_)[1:A+2]
+        p_ = split(up_)[1:A+1]
         
         # Create trial functions and extract displacement u and pressure
         # trial functions p = (p_1, ..., p_A)
         up = TrialFunctions(VW)
         u = up[0]
-        p = up[1:A+2]
+        p = up[1:A+1]
 
         # Create test functions and extract displacement u and pressure
         # test functions p = (p_1, ..., p_A)
         vw = TestFunctions(VW)
         v = vw[0]
-        w = vw[1:A+2]
+        w = vw[1:A+1]
 
         # Extract test and trial functions corresponding to the
         # nullspace Lagrange multiplier
@@ -238,7 +230,7 @@ class MPETSolver(object):
         # um and pm represent the solutions at time t + dt*theta
         theta = self.params.theta
         um = theta*u + (1.0 - theta)*u_
-        pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in range(1,A+1)]
+        pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in range(A)]
         
         # Extract material parameters from problem
         E = self.problem.params["E"]          
@@ -264,17 +256,17 @@ class MPETSolver(object):
 
         mu = E/(2.0*((1.0 + nu)))
         lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
-        As = range(A)
+        As = range(1,A)
 
         F = inner(2*mu*sym(grad(u)), sym(grad(v)))*dx() \
             - p[0]*div(v)*dx()\
-            + (-div(u) + 1./lmbda*(sum([alpha[i+1]*p[i+1] for i in As]) - p[0]))*w[0]*dx()\
-            + sum([-c*(p[i+1] - p_[i+1])*w[i+1] for i in As])*dx()\
-            + sum([ alpha[i]/lmbda*div(p[0]-p_[0])*w[i+1] for i in As])*dx() \
-            + sum([-alpha[i]*alpha[i]/lmbda*(p[i+1]-p_[i+1])*w[i+1] for i in As])*dx() \
-            + sum([-dt*K[i]*inner(grad(pm[i+1]), grad(w[i+1])) for i in As])*dx() \
-            + sum([sum([-dt*S[i+1][j+1]*(pm[i+1] - pm[j+1])*w[i+1] for j in As]) \
-                   for i in As])*dx() \
+            + (-div(u) + 1./lmbda*(sum([alpha[i]*p[i] for i in As]) - p[0]))*w[0]*dx()\
+            + sum([-c*(p[i] - p_[i])*w[i] for i in As])*dx()\
+            + sum([ alpha[i]/lmbda*(p[0]-p_[0])*w[i] for i in As])*dx() \
+            + sum([-alpha[i]*alpha[i]/lmbda*(p[i]-p_[i])*w[i] for i in As])*dx() \
+            + sum([-dt*K[i]*inner(grad(pm[i]), grad(w[i])) for i in As])*dx() \
+            + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \
+                    for i in As])*dx() \
             
         # Add orthogonality versus rigid motions if nullspace for the
         # displacement
@@ -291,7 +283,7 @@ class MPETSolver(object):
             i = 0
             for (k, p_nullspace) in enumerate(self.problem.pressure_nullspace):
                 if p_nullspace:
-                    F += p[k+1]*w_null[i]*dx() + p_null[i]*w[k+1]*dx()
+                    F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
                     i += 1
         
         # Add body force and traction boundary condition for momentum equation
@@ -308,9 +300,9 @@ class MPETSolver(object):
         for i in As:
             markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
-            L1 += [dt*g[i]*w[i+1]*dx() + dt*I[i]*w[i+1]*dsc[i](NEUMANN_MARKER)]
-                  
-            L2 += [dt*beta[i]*(-pm[i+1]+p_robin[i])*w[i+1]*dsc[i](ROBIN_MARKER)]
+            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i-1](NEUMANN_MARKER)]
+
+            L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i-1](ROBIN_MARKER)]
         # Set solution field(s)
         up = Function(VW)
         

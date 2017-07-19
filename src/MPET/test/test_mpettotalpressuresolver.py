@@ -43,13 +43,15 @@ def exact_solutions(params):
     # Define exact solutions u and p
     u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0),
          sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
-    p = [0,]
-    for i in range(A):
-        p += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+    p = []
+    p += [0]
+    for i in range(1,A):
+        p += [-(i)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
-    p[0] = lmbda*div_u + sum([alpha[i]*p[i+1] for i in range(A)])
+    p[0] = -lmbda*div_u + sum([alpha[i]*p[i] for i in range(1,A)])
+
     # Simplify symbolics 
     u = [sympy.simplify(u[i]) for i in range(d)]
     p = [sympy.simplify(p[i]) for i in range(A)]
@@ -66,22 +68,22 @@ def exact_solutions(params):
     # Compute f
     div_sigma_ast = [sum([diff(sigma_ast[i][j], x[j]) for j in range(d)])
                      for i in range(d)]
-    f = [- (div_sigma_ast[j] - sum(alpha[i]*grad_p[i+1][j] for i in range(A)))
+    f = [- (div_sigma_ast[j] - sum(alpha[i]*grad_p[i][j] for i in range(1,A)))
          for j in range(d)]
     f = [sympy.simplify(fi) for fi in f]
     
     # Compute g
     g = [None for i in range(A)]
-    g = [0,]
-    for i in range(A):
-        g[i+1] = - c*diff(p[i+1], t) - alpha[i]*diff(div_u, t) \
-               + sum([diff(K[i]*grad_p[i+1][j], x[j]) for j in range(d)]) \
-               - sum(S[i+1][j+1]*(p[i+1] - p[j+1]) for j in range(A))
+    g[0] = 0.0*t
+    for i in range(1,A):
+        g[i] = - c*diff(p[i], t) - alpha[i]*diff(div_u, t) \
+               + sum([diff(K[i]*grad_p[i][j], x[j]) for j in range(d)]) \
+               - sum(S[i][j]*(p[i] - p[j]) for j in range(1,A))
     g = [sympy.simplify(gi) for gi in g]
-        
+
     # Print sympy expressions as c++ code
     u_str = [sympy.printing.ccode(u[i]) for i in range(d)]
-    p_str = [sympy.printing.ccode(p[i]) for i in range(A+1)]
+    p_str = [sympy.printing.ccode(p[i]) for i in range(A)]
     f_str = [sympy.printing.ccode(f[i]) for i in range(d)]
     g_str = [sympy.printing.ccode(g[i]) for i in range(A)]
     
@@ -96,11 +98,11 @@ def single_run(n=8, M=8, theta=1.0):
     dt = float(T/M)
 
     # Define material parameters in MPET equations
-    A = 2
+    A = 3
     c = 1.0
-    alpha = (1.0, 1.0)
-    K = (1.0, 1.0)
-    S = ((1.0, 1.0), (1.0, 1.0))
+    alpha = (1.0, 1.0, 1.0)
+    K = (1.0, 1.0, 1.0)
+    S = ((1.0, 1.0, 1.0), (1.0, 1.0, 1.0), (1.0, 1.0, 1.0))
     E = 1.0
     nu = 0.35
     params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
@@ -120,14 +122,15 @@ def single_run(n=8, M=8, theta=1.0):
     # Apply Dirichlet conditions everywhere (indicated by the zero marker)
     on_boundary = CompiledSubDomain("on_boundary")
     on_boundary.mark(problem.momentum_boundary_markers, 0)
-    for i in range(A):
+    for i in range(1,A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
     params = dict(dt=dt, theta=theta, T=T)
-    solver = MPETSolver(problem, params)
+    solver = MPETTotalPressureSolver(problem, params)
 
     # Set initial conditions
+    # Initial conditions are needed for the total pressure too
     VP = solver.up_.function_space()
     V = VP.sub(0).collapse()
     assign(solver.up_.sub(0), interpolate(problem.u_bar, V))
@@ -141,16 +144,19 @@ def single_run(n=8, M=8, theta=1.0):
         info("t = %g" % t)
 
         plot(up.sub(0), key="u")
-        plot(up.sub(1), key="p0")
         plot(up.sub(2), key="p1")
+        plot(up.sub(3), key="p2")
         pass
 
-    (u, p0, p1) = up.split()
-    p = (p0, p1)
+    (u, p0, p1, p2) = up.split()
+    p = (p1, p2)
     u_err_L2 = errornorm(problem.u_bar, u, "L2")
     u_err_H1 = errornorm(problem.u_bar, u, "H1")
-    p_err_L2 = [errornorm(problem.p_bar[i], p[i], "L2") for i in range(A)]
-    p_err_H1 = [errornorm(problem.p_bar[i], p[i], "H1") for i in range(A)]
+    p_err_L2 = [errornorm(problem.p_bar[i+1], p[i], "L2") for i in range(A-1)]
+    p_err_H1 = [errornorm(problem.p_bar[i+1], p[i], "H1") for i in range(A-1)]
+    plot(problem.u_bar, key="u_ex", title="u_ex", mesh=problem.mesh)
+    plot(problem.p_bar[1], key="p1_ex", title="p1_ex", mesh=problem.mesh)
+    plot(problem.p_bar[2], key="p2_ex", title="p2_ex", mesh=problem.mesh)
 
     h = mesh.hmin()
     return (u_err_L2, u_err_H1, p_err_L2, p_err_H1, h)
@@ -226,7 +232,7 @@ def convergence_exp(theta):
 
 def test_convergence():
     convergence_exp(0.5)
-    convergence_exp(1.0)
+    #convergence_exp(1.0)
     
 if __name__ == "__main__":
 
