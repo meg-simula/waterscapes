@@ -43,6 +43,7 @@ def exact_solutions(params):
     # Define exact solutions u and p
     u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0),
          sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+
     p = []
     p += [0]
     for i in range(1,A):
@@ -50,7 +51,7 @@ def exact_solutions(params):
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
-    p[0] = -lmbda*div_u + sum([alpha[i]*p[i] for i in range(1,A)])
+    p[0] = lmbda*div_u - sum([alpha[i]*p[i] for i in range(1,A)])
 
     # Simplify symbolics 
     u = [sympy.simplify(u[i]) for i in range(d)]
@@ -58,27 +59,35 @@ def exact_solutions(params):
 
     # Compute sigma_ast
     grad_u = [[diff(u[i], x[j]) for j in range(d)] for i in range(d)]
+
     eps_u = [[0.5*(grad_u[i][j] + grad_u[j][i]) for j in range(d)]
              for i in range(d)]
+
     grad_p = [[diff(p[i], x[j]) for j in range(d)] for i in range(A)]
+
     sigma_ast = [[2*mu*eps_u[i][j] for j in range(d)] for i in range(d)]
-    for i in range(d):
-        sigma_ast[i][i] += lmbda*div_u
+
+    div_sigma_ast = [sum([diff(sigma_ast[i][j], x[j]) for j in range(d)])
+                     for i in range(d)]
+
+    # for i in range(d):
+    #     sigma_ast[i][i] += lmbda*div_u
 
     # Compute f
     div_sigma_ast = [sum([diff(sigma_ast[i][j], x[j]) for j in range(d)])
                      for i in range(d)]
-    f = [- (div_sigma_ast[j] - sum(alpha[i]*grad_p[i][j] for i in range(1,A)))
-         for j in range(d)]
+    f = [-(div_sigma_ast[j] + diff(p[0],x[j])) for j in range(d)]
     f = [sympy.simplify(fi) for fi in f]
-    
+
     # Compute g
     g = [None for i in range(A)]
-    g[0] = 0.0*t
+    g[0] = 0.0
     for i in range(1,A):
-        g[i] = - c*diff(p[i], t) - alpha[i]*diff(div_u, t) \
+        g[i] = - c*diff(p[i], t) \
+               - alpha[i]/lmbda *diff((p[0] + sum([alpha[j]*p[j] for j in range(1,A)])), t) \
                + sum([diff(K[i]*grad_p[i][j], x[j]) for j in range(d)]) \
                - sum(S[i][j]*(p[i] - p[j]) for j in range(1,A))
+
     g = [sympy.simplify(gi) for gi in g]
 
     # Print sympy expressions as c++ code
@@ -94,15 +103,15 @@ def single_run(n=8, M=8, theta=1.0):
     "N is t_he mesh size, M the number of time steps."
     
     # Define end time T and timestep dt
-    T = 0.5
+    T = 1.0
     dt = float(T/M)
 
     # Define material parameters in MPET equations
     A = 3
     c = 1.0
-    alpha = (1.0, 1.0, 1.0)
-    K = (1.0, 1.0, 1.0)
-    S = ((1.0, 1.0, 1.0), (1.0, 1.0, 1.0), (1.0, 1.0, 1.0))
+    alpha = (None, 1.0, 1.0)
+    K = (None, 1.0, 1.0)
+    S = ((None, None, None), (None, 1.0, 1.0), (None, 1.0, 1.0))
     E = 1.0
     nu = 0.35
     params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
@@ -137,27 +146,46 @@ def single_run(n=8, M=8, theta=1.0):
     for i in range(A):
         Q = VP.sub(i+1).collapse()
         assign(solver.up_.sub(i+1), interpolate(problem.p_bar[i], Q))
+
+    # plot(solver.up_.sub(0), key="u", title="u")
+    # plot(solver.up_.sub(1), key="p0", title="p0")
+    # plot(solver.up_.sub(2), key="p1", title="p1")
+    # plot(solver.up_.sub(3), key="p2", title="p2")
+    # plot(problem.u_bar, key="u_ex", title="u_ex", mesh=problem.mesh)
+    # plot(problem.p_bar[0], key="p0_ex", title="p0_ex", mesh=problem.mesh)
+    # plot(problem.p_bar[1], key="p1_ex", title="p1_ex", mesh=problem.mesh)
+    # plot(problem.p_bar[2], key="p2_ex", title="p2_ex", mesh=problem.mesh)
+    # interactive()
     
     # Solve
     solutions = solver.solve()
     for (up, t) in solutions:
         info("t = %g" % t)
 
-        plot(up.sub(0), key="u")
-        plot(up.sub(2), key="p1")
-        plot(up.sub(3), key="p2")
+        # plot(up.sub(0), key="u")
+        # plot(up.sub(1), key="p0")
+        # plot(up.sub(2), key="p1")
+        # plot(up.sub(3), key="p2")
+        # plot(problem.u_bar, key="u_ex", title="u_ex", mesh=problem.mesh)
+        # plot(problem.p_bar[0], key="p0_ex", title="p0_ex", mesh=problem.mesh)
+        # plot(problem.p_bar[1], key="p1_ex", title="p1_ex", mesh=problem.mesh)
+        # plot(problem.p_bar[2], key="p2_ex", title="p2_ex", mesh=problem.mesh)
+        # plot(problem.f, key="f", title="f", mesh=problem.mesh)
+        # plot(problem.g[0], key="g0", title="g0", mesh=problem.mesh)
+        # plot(problem.g[1], key="g1", title="g1", mesh=problem.mesh)
+        # plot(problem.g[2], key="g2", title="g2", mesh=problem.mesh)
+
+        #plot(diff(div(problem.u_bar), problem.time), key="divu_t", title="divu_t", mesh=problem.mesh)
+
         pass
+    interactive()
 
     (u, p0, p1, p2) = up.split()
     p = (p1, p2)
-    u_err_L2 = errornorm(problem.u_bar, u, "L2")
-    u_err_H1 = errornorm(problem.u_bar, u, "H1")
-    p_err_L2 = [errornorm(problem.p_bar[i+1], p[i], "L2") for i in range(A-1)]
-    p_err_H1 = [errornorm(problem.p_bar[i+1], p[i], "H1") for i in range(A-1)]
-    plot(problem.u_bar, key="u_ex", title="u_ex", mesh=problem.mesh)
-    plot(problem.p_bar[1], key="p1_ex", title="p1_ex", mesh=problem.mesh)
-    plot(problem.p_bar[2], key="p2_ex", title="p2_ex", mesh=problem.mesh)
-
+    u_err_L2 = errornorm(problem.u_bar, u, "L2", degree_rise=5)
+    u_err_H1 = errornorm(problem.u_bar, u, "H1", degree_rise=5)
+    p_err_L2 = [errornorm(problem.p_bar[i+1], p[i], "L2", degree_rise=5) for i in range(A-1)]
+    p_err_H1 = [errornorm(problem.p_bar[i+1], p[i], "H1", degree_rise=5) for i in range(A-1)]
     h = mesh.hmin()
     return (u_err_L2, u_err_H1, p_err_L2, p_err_H1, h)
     
@@ -232,7 +260,7 @@ def convergence_exp(theta):
 
 def test_convergence():
     convergence_exp(0.5)
-    #convergence_exp(1.0)
+    convergence_exp(1.0)
     
 if __name__ == "__main__":
 

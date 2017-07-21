@@ -65,8 +65,8 @@ def exact_solutions(params):
     # Compute f
     div_sigma_ast = [sum([diff(sigma_ast[i][j], x[j]) for j in range(d)])
                      for i in range(d)]
-    f = [- (div_sigma_ast[j] - sum(alpha[i]*grad_p[i][j] for i in range(A)))
-         for j in range(d)]
+    
+    f = [- (div_sigma_ast[j] - sum(alpha[i]*grad_p[i][j] for i in range(A))) for j in range(d)]
     f = [sympy.simplify(fi) for fi in f]
     
     # Compute g

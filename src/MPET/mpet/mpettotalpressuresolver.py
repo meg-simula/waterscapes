@@ -240,9 +240,6 @@ class MPETTotalPressureSolver(object):
         S = self.problem.params["S"]
         c = self.problem.params["c"]
 
-        # Define the extra/elastic stress
-        sigma = lambda u: elastic_stress(u, E, nu)
-
         # Extract body force f and sources g, boundary traction s and
         # boundary flux I from problem description
         f = self.problem.f
@@ -254,16 +251,17 @@ class MPETTotalPressureSolver(object):
         # Define variational form to be solved at each time-step.
         dx = Measure("dx", domain=mesh)
 
-        mu = E/(2.0*((1.0 + nu)))
         lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
+        mu = E/(2.0*(1.0+nu))
+
         As = range(1,A)
 
+        #FIXME
         F = inner(2*mu*sym(grad(u)), sym(grad(v)))*dx() \
-            - p[0]*div(v)*dx()\
-            + (-div(u) + 1./lmbda*(sum([alpha[i]*p[i] for i in As]) - p[0]))*w[0]*dx()\
-            + sum([-c*(p[i] - p_[i])*w[i] for i in As])*dx()\
-            + sum([ alpha[i]/lmbda*(p[0]-p_[0])*w[i] for i in As])*dx() \
-            + sum([-alpha[i]*alpha[i]/lmbda*(p[i]-p_[i])*w[i] for i in As])*dx() \
+            + p[0]*div(v)*dx()\
+            + (div(u) - 1./lmbda*sum([alpha[i]*p[i] for i in As]) -1./lmbda*p[0])*w[0]*dx()\
+            + sum([-c*(p[i] -p_[i])*w[i] for i in As])*dx()\
+            - sum([ alpha[i]/lmbda*(p[0]-p_[0] + sum([alpha[j]*(p[j]-p_[j]) for j in As]))*w[i] for i in As])*dx() \
             + sum([-dt*K[i]*inner(grad(pm[i]), grad(w[i])) for i in As])*dx() \
             + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \
                     for i in As])*dx() \
@@ -297,12 +295,12 @@ class MPETTotalPressureSolver(object):
         dsc = []
         L1 = []
         L2 = []
-        for i in As:
+        for i in range(A):
             markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
-            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i-1](NEUMANN_MARKER)]
+            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
 
-            L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i-1](ROBIN_MARKER)]
+            L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)]
         # Set solution field(s)
         up = Function(VW)
         
@@ -343,7 +341,7 @@ class MPETTotalPressureSolver(object):
         # Start with up as up_, can help Krylov Solvers
         self.up.assign(self.up_)
 
-        while (float(time) < (T - 1.e-10)):
+        while (float(time) < (T - 1.e-9)):
 
             # Handle the different parts of the rhs a bit differently
             # due to theta-scheme
@@ -381,10 +379,10 @@ class MPETTotalPressureSolver(object):
 
             # Yield solution and time
             yield self.up, float(time)
-
             # Update previous solution up_ with current solution up
             self.up_.assign(self.up)
 
             # Update time
             time.assign(t)
         
+
