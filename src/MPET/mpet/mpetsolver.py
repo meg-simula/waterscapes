@@ -155,6 +155,7 @@ class MPETSolver(object):
         params.add("u_degree", 2)
         params.add("p_degree", 1)
         params.add("direct_solver", True)
+        params.add("stabilization", False)
         #params.add(KrylovSolver.default_parameters())
         #params.add(LUSolver.default_parameters())
         #params.add("testing", False)
@@ -271,8 +272,15 @@ class MPETSolver(object):
             + sum([-dt*K[i]*inner(grad(pm[i]), grad(w[i])) for i in As])*dx() \
             + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \
                    for i in As])*dx() \
+
+        stabilization = self.params.stabilization
+        if stabilization == True:
+            h = mesh.hmin()
+        	mu = E/(2.0*((1.0 + nu)))
+            lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
+        	F += inner(sum([-h*h*K[i]/4.0(lmbda+2*mu)*grad(p[i]-p_[i])*w[i] for i in As]) )
             
-        # Add orthogonality versus rigid motions if nullspace for the
+        # Add orthogonality vefrsus rigid motions if nullspace for the
         # displacement
         if u_nullspace:
             for i in range(dimZ):
