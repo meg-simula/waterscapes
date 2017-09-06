@@ -13,12 +13,10 @@ flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
 class My_Expression(Expression):
-    def __init__(self, mmHg2Pa, time, sub_cells, degree=None):
+    def __init__(self, mmHg2Pa, time, degree=None):
         self.time = time
         self.mmHg2Pa = mmHg2Pa
-        self.sub_cells = sub_cells
     def eval(self, value, x):
-
         if (x[0]*x[0] + x[1]*x[1])<50.0*50.0:
             value[0] = self.mmHg2Pa*0.15*sin(2*pi*self.time)
         else:
@@ -34,20 +32,20 @@ def solid_pressure(u, E, nu):
     ps = -1.0/d*sum([s[(i,i)] for i in range(d)])
     return ps
 
-def biot_El623404():
+def biot_donut():
 
     "N is t_he mesh size, M the number of time steps."
     
     # Define end time T and timestep dt
     theta = 1.0
     dt = 0.01
-    T = dt
+    T = 1.0
     # Define material parameters in MPET equations
-    A = 1
+    A = 2
     c = 1.0e-4
-    alpha = (1.0,)
-    K = (1.0e-5,)
-    S = ((0.0,),)
+    alpha = (None,1.0)
+    K = (None, 1.0e-5,)
+    S = ((None, None),(None, 0.0))
     E = 5000 # Pa
     nu = 0.479
     params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
@@ -55,58 +53,55 @@ def biot_El623404():
     info("Setting up MPET problem")
 
     # Read mesh
-    mesh = Mesh("../../../meshes/El623404/El623404.xml")
-
-    sub_domains = MeshFunction("size_t", mesh, "../../../meshes/El623404/El623404_subdomains.xml")
-    sub_cells = CellFunction("size_t", mesh,0)
-    for i in range(len(sub_cells)):
-        sub_cells[i] = sub_domains[i]
+    mesh = Mesh()
+    file = HDF5File(mpi_comm_world(), "donut2D.h5", "r")
+    file.read(mesh, "/mesh", False)
+    file.close()
+    #mesh = refine(mesh)
 
     time = Constant(0.0)
     problem = MPETProblem(mesh, time, params=params)
+    inner_boundary = CompiledSubDomain("on_boundary && ((x[0]*x[0] + x[1]*x[1])<50.0*50.0)")
+    outer_boundary = CompiledSubDomain("on_boundary && ((x[0]*x[0] + x[1]*x[1])>50.0*50.0)")
 
     mmHg2Pa = Constant(133.322)
     p_val = 0.15*mmHg2Pa
 
     n = FacetNormal(mesh)
     x = SpatialCoordinate(mesh)
+    problem.s = conditional((x[0]*x[0] + x[1]*x[1] < 50.0*50.0), -p_val*sin(2*pi*time), 0.0)*n
 
+    problem.displacement_nullspace = False
+    OB_M = 1
+    IB_M = 1
     
-    all_boundary = CompiledSubDomain('on_boundary')
+    problem.u_bar = Expression(("0.1*sin(2*pi*t)*x[0]/sqrt((x[0]*x[0] + x[1]*x[1]))",\
+                                "0.1*sin(2*pi*t)*x[1]/sqrt((x[0]*x[0] + x[1]*x[1]))"),\
+                                 t=time, degree=3, domain=problem.mesh)
+    inner_boundary.mark(problem.momentum_boundary_markers, IB_M)
+    outer_boundary.mark(problem.momentum_boundary_markers, OB_M)
 
-    problem.displacement_nullspace = True
-    all_boundary.mark(problem.momentum_boundary_markers, 1)
-    for i in range(A):
-        all_boundary.mark(problem.continuity_boundary_markers[i], 0)
+    IB_C = 0
+    OB_C = 2
 
-    DG = FunctionSpace(mesh, "DG", 0)
+    #Dirichlet
+    # problem.p_bar = [Expression("mmHg2Pa*0.15*sin(2*pi*t)",\
+    #                              t=time, mmHg2Pa=mmHg2Pa, degree=3, domain=problem.mesh)]
 
-    problem.p_bar = Function(DG)
-    for i in range(len(sub_cells)):
-        if sub_cells[i] == 4 or sub_cells[i] == 6:
-            problem.p_bar.vector()[i] = 133.322
+    problem.p_bar = [Constant(0.0), My_Expression(mmHg2Pa, time, degree=3)]
 
-    # facets_momentum = MeshFunction("size_t", mesh, "facets_momentum.xml")
-    # facets_continuity = MeshFunction("size_t", mesh, "facets_continuity.xml")
-
-    # for facet in facets(mesh):
-    #     problem.momentum_boundary_markers[facet] = facets_momentum[facet]
-
-    # outer_boundary.mark(problem.momentum_boundary_markers, OB_M)
-
-
-    # for i in range(A):
-    #     for facet in facets(mesh):
-    #         problem.continuity_boundary_markers[i][facet] = facets_continuity[facet]
+    for i in range(1, A):
+        inner_boundary.mark(problem.continuity_boundary_markers[i], IB_C)
+        outer_boundary.mark(problem.continuity_boundary_markers[i], OB_C)
     #Neumann
 
     #Robin
-    # problem.beta = [conditional((x[0]*x[0] + x[1]*x[1] < 50.0*50.0), 1.0, 1.0)]
-    # problem.p_robin = [conditional((x[0]*x[0] + x[1]*x[1] < 50.0*50.0), p_val*sin(2*pi*time),0.0)]
+    problem.beta = [Constant(0.0), conditional((x[0]*x[0] + x[1]*x[1] < 50.0*50.0), 1.0e-12, 1.0e-5)]
+    problem.p_robin = [Constant(0.0), conditional((x[0]*x[0] + x[1]*x[1] < 50.0*50.0), p_val*sin(2*pi*time),0.0)]
 
     # Set-up solver
-    params = dict(dt=dt, theta=theta, T=T, stabilization=False)
-    solver = MPETSolver(problem, params)
+    params = dict(dt=dt, theta=theta, T=T)
+    solver = MPETTotalPressureSolver(problem, params)
 
     # Using zero initial conditions by default
     
@@ -186,45 +181,7 @@ def biot_El623404():
     pylab.savefig(foldername + "/p_solid.png")
     pylab.show()
 
-def create_markers():
 
-    mesh = Mesh("../../../meshes/El623404/El623404.xml")
-    sub_domains = MeshFunction("size_t", mesh, "../../../meshes/El623404/El623404_subdomains.xml")
-    facets_momentum = FacetFunction('size_t', mesh, 7101982)
-    facets_continuity = FacetFunction('size_t', mesh, 7101982)
-    sub_cells = CellFunction("size_t", mesh,0)
-
-    for i in range(len(sub_cells)):
-        sub_cells[i] = sub_domains[i]
-    
-    File("cellfunction.xml")<<sub_cells
-    for cell in SubsetIterator(sub_cells, 4):
-        for facet in facets(cell): 
-            facets_momentum[facet] = 0
-
-    for cell in SubsetIterator(sub_cells, 6):
-        for facet in facets(cell): 
-            facets_momentum[facet] = 0
-
-    for cell in SubsetIterator(sub_cells, 4):
-        for facet in facets(cell): 
-            facets_continuity[facet] = 0
-
-    for cell in SubsetIterator(sub_cells, 6):
-        for facet in facets(cell): 
-            facets_continuity[facet] = 0
-
-    File("facets_momentum.xml")<<facets_momentum
-    File("facets_continuity.xml")<<facets_continuity
-    File("facets_momentum.pvd")<<facets_momentum
-    File("facets_continuity.pvd")<<facets_continuity
-    # 
-    facets_momentum = FacetFunction('size_t', mesh)
-
-
-
-    
 if __name__ == "__main__":
 
-    biot_El623404()
-
+    biot_donut()
