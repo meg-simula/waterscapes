@@ -276,9 +276,9 @@ class MPETSolver(object):
         stabilization = self.params.stabilization
         if stabilization == True:
             h = mesh.hmin()
-        	mu = E/(2.0*((1.0 + nu)))
+            mu = E/(2.0*((1.0 + nu)))
             lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
-        	F += inner(sum([-h*h*K[i]/4.0(lmbda+2*mu)*grad(p[i]-p_[i])*w[i] for i in As]) )
+            F += inner(sum([-h*h*K[i]/4.0(lmbda+2*mu)*grad(p[i]-p_[i])*w[i] for i in As]) )
             
         # Add orthogonality vefrsus rigid motions if nullspace for the
         # displacement
