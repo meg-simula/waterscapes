@@ -86,23 +86,6 @@ def biot_El623404():
         if sub_cells[i] == 4 or sub_cells[i] == 6:
             problem.p_bar.vector()[i] = 133.322
 
-    # facets_momentum = MeshFunction("size_t", mesh, "facets_momentum.xml")
-    # facets_continuity = MeshFunction("size_t", mesh, "facets_continuity.xml")
-
-    # for facet in facets(mesh):
-    #     problem.momentum_boundary_markers[facet] = facets_momentum[facet]
-
-    # outer_boundary.mark(problem.momentum_boundary_markers, OB_M)
-
-
-    # for i in range(A):
-    #     for facet in facets(mesh):
-    #         problem.continuity_boundary_markers[i][facet] = facets_continuity[facet]
-    #Neumann
-
-    #Robin
-    # problem.beta = [conditional((x[0]*x[0] + x[1]*x[1] < 50.0*50.0), 1.0, 1.0)]
-    # problem.p_robin = [conditional((x[0]*x[0] + x[1]*x[1] < 50.0*50.0), p_val*sin(2*pi*time),0.0)]
 
     # Set-up solver
     params = dict(dt=dt, theta=theta, T=T, stabilization=False)
