@@ -90,8 +90,8 @@ def demo_donut(n=8, M=8, theta=1.0):
 
     # ps_values = [[ps_0(point) for point in points],]
     # times = [0.0,]
-    # for (up, t) in solutions:
-    #     info("t = %g" % t)
+    for (up, t) in solutions:
+        info("t = %g" % t)
     #     #Fileu << up.sub(0)
     #     #Filep << up.sub(1)         
     #     # plot(up.sub(0), key="u")
