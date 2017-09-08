@@ -1,7 +1,7 @@
 __author__ = "Eleonora Piersanti (eleonora@simula.no) and Marie E. Rognes (meg@simula.no), 2017"
 
 import math
-import pytest
+# import pytest
 from mpet import *
 from matplotlib import pylab
 from datetime import datetime
@@ -211,3 +211,4 @@ if __name__ == "__main__":
 
     biot_El623404()
 
+# 
