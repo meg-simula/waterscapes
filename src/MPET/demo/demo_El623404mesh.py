@@ -94,15 +94,15 @@ def biot_El623404():
     # Using zero initial conditions by default
     
     # Solve
-    points = [Point(30.0,0.0), Point(50.0,0.0), Point(70.0,0.0), Point(100.0,0.0)]
+    # points = [Point(30.0,0.0), Point(50.0,0.0), Point(70.0,0.0), Point(100.0,0.0)]
     solutions = solver.solve()
     up = solver.up_
-    u0_values = [[up(point)[0] for point in points],]
-    p_values = [[up(point)[2] for point in points],]
+    # u0_values = [[up(point)[0] for point in points],]
+    # p_values = [[up(point)[2] for point in points],]
 
-    PS = FunctionSpace(mesh, "CG", 1)
-    ps_0 = solid_pressure(up.sub(0), E, nu)
-    ps_0 = project(ps_0, PS)
+    # PS = FunctionSpace(mesh, "CG", 1)
+    # ps_0 = solid_pressure(up.sub(0), E, nu)
+    # ps_0 = project(ps_0, PS)
 
     today = datetime.now()
     foldername = "results/"+today.strftime('%Y%m%d_%H%M%S')
@@ -110,29 +110,29 @@ def biot_El623404():
     Fileu = File(foldername + "/u_robin.pvd")
     Filep = File(foldername + "/p_robin.pvd")
 
-    params_file = csv.writer(open(foldername+"/params.csv", "w"))
-    for key, val in problem.params.items():
-        params_file.writerow([key, val])
+    # params_file = csv.writer(open(foldername+"/params.csv", "w"))
+    # for key, val in problem.params.items():
+    #     params_file.writerow([key, val])
 
-    params_file.writerow(["IB_M", IB_M])
-    params_file.writerow(["OB_M", OB_M])
-    params_file.writerow(["IB_C", IB_C])
-    params_file.writerow(["OB_C", OB_C])    
-    ps_values = [[ps_0(point) for point in points],]
-    times = [0.0,]
+    # params_file.writerow(["IB_M", IB_M])
+    # params_file.writerow(["OB_M", OB_M])
+    # params_file.writerow(["IB_C", IB_C])
+    # params_file.writerow(["OB_C", OB_C])    
+    # ps_values = [[ps_0(point) for point in points],]
+    # times = [0.0,]
     for (up, t) in solutions:
         info("t = %g" % t)
         Fileu << up.sub(0)
         Filep << up.sub(1)         
         # plot(up.sub(0), key="u")
         # plot(up.sub(1), key="p0")
-        times += [t]
-        u0_values.append([up(point)[0] for point in points])
-        p_values.append([up(point)[2] for point in points])
+        # times += [t]
+        # u0_values.append([up(point)[0] for point in points])
+        # p_values.append([up(point)[2] for point in points])
 
-        ps = solid_pressure(up.sub(0), E, nu)
-        ps = project(ps, PS)
-        ps_values.append([ps(point) for point in points])
+        # ps = solid_pressure(up.sub(0), E, nu)
+        # ps = project(ps, PS)
+        # ps_values.append([ps(point) for point in points])
     #     plot(ps, key="ps")
 
     # interactive()
