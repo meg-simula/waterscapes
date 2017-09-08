@@ -264,6 +264,7 @@ class MPETSolver(object):
         # Define variational form to be solved at each time-step.
         dx = Measure("dx", domain=mesh)
 
+        info("Assembling form")
         As = range(A)
         F = inner(sigma(u), sym(grad(v)))*dx() \
             + sum([-alpha[i]*p[i]*div(v) for i in As])*dx() \

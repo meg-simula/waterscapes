@@ -76,40 +76,40 @@ def demo_donut(n=8, M=8, theta=1.0):
     # Using zero initial conditions by default
     
     # Solve
-    points = [Point(30.0,0.0), Point(50.0,0.0), Point(70.0,0.0), Point(100.0,0.0)]
-    Fileu = File("u.pvd")
-    Filep = File("p.pvd")
+    # points = [Point(30.0,0.0), Point(50.0,0.0), Point(70.0,0.0), Point(100.0,0.0)]
+    # Fileu = File("u.pvd")
+    # Filep = File("p.pvd")
     solutions = solver.solve()
     up = solver.up_
-    u0_values = [[up(point)[0] for point in points],]
-    p_values = [[up(point)[2] for point in points],]
+    # u0_values = [[up(point)[0] for point in points],]
+    # p_values = [[up(point)[2] for point in points],]
 
-    PS = FunctionSpace(mesh, "CG", 1)
-    ps_0 = solid_pressure(up.sub(0), E, nu)
-    ps_0 = project(ps_0, PS)
+    # PS = FunctionSpace(mesh, "CG", 1)
+    # ps_0 = solid_pressure(up.sub(0), E, nu)
+    # ps_0 = project(ps_0, PS)
 
-    ps_values = [[ps_0(point) for point in points],]
-    times = [0.0,]
-    for (up, t) in solutions:
-        info("t = %g" % t)
-        #Fileu << up.sub(0)
-        #Filep << up.sub(1)         
-        # plot(up.sub(0), key="u")
-        # plot(up.sub(1), key="p0")
-        times += [t]
-        # u0_values.append([up(point)[0] for point in points])
-        p_values.append([up(point)[2] for point in points])
+    # ps_values = [[ps_0(point) for point in points],]
+    # times = [0.0,]
+    # for (up, t) in solutions:
+    #     info("t = %g" % t)
+    #     #Fileu << up.sub(0)
+    #     #Filep << up.sub(1)         
+    #     # plot(up.sub(0), key="u")
+    #     # plot(up.sub(1), key="p0")
+    #     times += [t]
+    #     # u0_values.append([up(point)[0] for point in points])
+    #     p_values.append([up(point)[2] for point in points])
 
-        ps = solid_pressure(up.sub(0), E, nu)
-        ps = project(ps, PS)
-        ps_values.append([ps(point) for point in points])
+    #     ps = solid_pressure(up.sub(0), E, nu)
+    #     ps = project(ps, PS)
+        # ps_values.append([ps(point) for point in points])
         # plot(ps, key="ps")
 
     # interactive()
 
-    a = zip(*u0_values)
-    b = zip(*p_values)
-    c = zip(*ps_values)
+    # a = zip(*u0_values)
+    # b = zip(*p_values)
+    # c = zip(*ps_values)
 
     # pylab.figure()
     # for (k, i) in enumerate(a):
