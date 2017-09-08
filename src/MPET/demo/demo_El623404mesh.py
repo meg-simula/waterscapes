@@ -124,8 +124,8 @@ def biot_El623404():
         info("t = %g" % t)
         Fileu << up.sub(0)
         Filep << up.sub(1)         
-        plot(up.sub(0), key="u")
-        plot(up.sub(1), key="p0")
+        # plot(up.sub(0), key="u")
+        # plot(up.sub(1), key="p0")
         times += [t]
         u0_values.append([up(point)[0] for point in points])
         p_values.append([up(point)[2] for point in points])
@@ -133,41 +133,41 @@ def biot_El623404():
         ps = solid_pressure(up.sub(0), E, nu)
         ps = project(ps, PS)
         ps_values.append([ps(point) for point in points])
-        plot(ps, key="ps")
+    #     plot(ps, key="ps")
 
-    interactive()
+    # interactive()
 
-    a = zip(*u0_values)
-    b = zip(*p_values)
-    d = zip(*ps_values)
+    # a = zip(*u0_values)
+    # b = zip(*p_values)
+    # d = zip(*ps_values)
 
-    pylab.figure()
-    for (k, i) in enumerate(a):
-        pylab.plot(times, i, "-*", label ="x_%d" %k)
-    pylab.grid(True)
-    pylab.xlabel("time")
-    pylab.ylabel("u0")
-    pylab.legend()
-    pylab.savefig(foldername + "/u.png")
+    # pylab.figure()
+    # for (k, i) in enumerate(a):
+    #     pylab.plot(times, i, "-*", label ="x_%d" %k)
+    # pylab.grid(True)
+    # pylab.xlabel("time")
+    # pylab.ylabel("u0")
+    # pylab.legend()
+    # pylab.savefig(foldername + "/u.png")
 
-    pylab.figure()
-    for (k, i) in enumerate(b):
-        pylab.plot(times, i, "-*", label ="x_%d" %k)
-    pylab.grid(True)
-    pylab.xlabel("time")
-    pylab.ylabel("p")
-    pylab.legend()
-    pylab.savefig(foldername + "/p.png")
+    # pylab.figure()
+    # for (k, i) in enumerate(b):
+    #     pylab.plot(times, i, "-*", label ="x_%d" %k)
+    # pylab.grid(True)
+    # pylab.xlabel("time")
+    # pylab.ylabel("p")
+    # pylab.legend()
+    # pylab.savefig(foldername + "/p.png")
 
-    pylab.figure()
-    for (k, i) in enumerate(d):
-        pylab.plot(times, i, "-*", label ="x_%d" %k)
-    pylab.grid(True)
-    pylab.xlabel("time")
-    pylab.ylabel("ps")
-    pylab.legend()
-    pylab.savefig(foldername + "/p_solid.png")
-    pylab.show()
+    # pylab.figure()
+    # for (k, i) in enumerate(d):
+    #     pylab.plot(times, i, "-*", label ="x_%d" %k)
+    # pylab.grid(True)
+    # pylab.xlabel("time")
+    # pylab.ylabel("ps")
+    # pylab.legend()
+    # pylab.savefig(foldername + "/p_solid.png")
+    # pylab.show()
 
 def create_markers():
 
