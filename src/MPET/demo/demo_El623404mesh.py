@@ -7,22 +7,12 @@ from matplotlib import pylab
 from datetime import datetime
 import os
 import csv
+import os.path
 # Turn on FEniCS optimizations
 parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
-
-class My_Expression(Expression):
-    def __init__(self, mmHg2Pa, time, sub_cells, degree=None):
-        self.time = time
-        self.mmHg2Pa = mmHg2Pa
-        self.sub_cells = sub_cells
-    def eval(self, value, x):
-
-        if (x[0]*x[0] + x[1]*x[1])<50.0*50.0:
-            value[0] = self.mmHg2Pa*0.15*sin(2*pi*self.time)
-        else:
-            value[0] = 0.0
+set_log_level(15)
 
 def solid_pressure(u, E, nu):
     "Define the standard linear elastic constitutive equation."
@@ -54,39 +44,64 @@ def biot_El623404():
 
     info("Setting up MPET problem")
 
-    # Read mesh
-    mesh = Mesh("../../../meshes/El623404/El623404.xml")
+    # Read mesh in xml and save it in hdf5 format if it does not exists 
+    hdf5_mesh_file = "../../../meshes/El623404/El623404.h5"
+    if not(os.path.isfile(hdf5_mesh_file)):
+        mesh_xml = Mesh("../../../meshes/El623404/El623404.xml")
+        subdomains_xml = MeshFunction("size_t", mesh_xml, "../../../meshes/El623404/El623404_subdomains.xml")
+        mesh_file = HDF5File(mpi_comm_world(), "../../../meshes/El623404/El623404.h5", 'w')
+        mesh_file.write(mesh_xml, '/mesh')
+        mesh_file.write(subdomains_xml, "/subdomains")
+        mesh_file.close()
 
-    sub_domains = MeshFunction("size_t", mesh, "../../../meshes/El623404/El623404_subdomains.xml")
-    sub_cells = CellFunction("size_t", mesh,0)
+    mesh = Mesh()
+    mesh_file = HDF5File(mpi_comm_world(), '../../../meshes/El623404/El623404.h5', 'r')
+    mesh_file.read(mesh, '/mesh', False)
+    sub_domains = MeshFunction("size_t", mesh)
+    mesh_file.read(sub_domains, "/subdomains")
+    MeshPartitioning.build_distributed_mesh(mesh)
+
+    sub_cells = CellFunction("size_t", mesh, 0)
+
+    exit()
+    # mesh = UnitCubeMesh(50,50,50)
+
+    # sub_domains = MeshFunction("size_t", mesh, 3)
+    # sub_cells = CellFunction("size_t", mesh, 0)
+
+    print(len(sub_cells))
+    print(len(sub_domains))
     for i in range(len(sub_cells)):
         sub_cells[i] = sub_domains[i]
 
     time = Constant(0.0)
     problem = MPETProblem(mesh, time, params=params)
-
-    mmHg2Pa = Constant(133.322)
-    p_val = 0.15*mmHg2Pa
-
     n = FacetNormal(mesh)
     x = SpatialCoordinate(mesh)
 
     
     all_boundary = CompiledSubDomain('on_boundary')
 
-    problem.displacement_nullspace = True
-    all_boundary.mark(problem.momentum_boundary_markers, 1)
+    problem.displacement_nullspace = False
+    all_boundary.mark(problem.momentum_boundary_markers, 0)
     for i in range(A):
         all_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     DG = FunctionSpace(mesh, "DG", 0)
 
-    problem.p_bar = Function(DG)
-    for i in range(len(sub_cells)):
-        if sub_cells[i] == 4 or sub_cells[i] == 6:
-            problem.p_bar.vector()[i] = 133.322
+    f = HDF5File(mpi_comm_world(),'p_bar.h5', 'r')
+    pressure = Function(DG)
+    f.read(pressure, "/initial")
 
-
+    # for i in range(len(sub_cells)):
+    #     print "i = ", i
+    #     if sub_cells[i] == 4 or sub_cells[i] == 6:
+    #         pressure.vector()[i] = 133.322
+ 
+    # problem.p_bar = [pressure,]
+    problem.u_bar = Constant((0.0,0.0,0.0))
+    problem.f = Constant((0.0,0.0,0.0))
+    problem.s = Constant((0.0,0.0,0.0))
     # Set-up solver
     params = dict(dt=dt, theta=theta, T=T, stabilization=False)
     solver = MPETSolver(problem, params)
@@ -106,7 +121,7 @@ def biot_El623404():
 
     today = datetime.now()
     foldername = "results/"+today.strftime('%Y%m%d_%H%M%S')
-    os.makedirs(foldername)
+    # os.makedirs(foldername)
     Fileu = File(foldername + "/u_robin.pvd")
     Filep = File(foldername + "/p_robin.pvd")
 
@@ -197,18 +212,33 @@ def create_markers():
         for facet in facets(cell): 
             facets_continuity[facet] = 0
 
+    DG = FunctionSpace(mesh, "DG", 0)
+    pressure = Function(DG)
+    for i in range(len(sub_cells)):
+        if sub_cells[i] == 4 or sub_cells[i] == 6:
+            pressure.vector()[i] = 133.322
+    f = HDF5File(mpi_comm_world(),'p_bar.h5', 'w')
+    f.write(pressure, '/initial')
+
+    f = HDF5File(mpi_comm_world(),'facets_momentum.h5', 'w')
+    f.write(facets_momentum, '/facets')
+    f = HDF5File(mpi_comm_world(),'facets_continuity.h5', 'w')
+    f.write(facets_continuity, '/facets')
+
+    # f = HDF5File(mpi_comm_world(),'p_bar.h5', 'w')
+    # f.write(pressure, '/initial')
+
     File("facets_momentum.xml")<<facets_momentum
     File("facets_continuity.xml")<<facets_continuity
     File("facets_momentum.pvd")<<facets_momentum
     File("facets_continuity.pvd")<<facets_continuity
-    # 
-    facets_momentum = FacetFunction('size_t', mesh)
-
+    
 
 
     
 if __name__ == "__main__":
 
+    # create_markers()
     biot_El623404()
 
 # 
