@@ -269,8 +269,6 @@ class MPETTotalPressureSolver(object):
         # Add orthogonality versus rigid motions if nullspace for the
         # displacement
         if u_nullspace:
-            for i in range(dimZ):
-                print r[i]
 
             F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
                  + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
@@ -351,7 +349,6 @@ class MPETTotalPressureSolver(object):
             # (when theta = 0.5)
             t_theta = float(time) + theta*float(dt)
             time.assign(t_theta)                
-            print "t_theta = ", float(time)
 
             # Assemble time-dependent rhs for parabolic equations
             for L1i in L1: 
@@ -364,7 +361,6 @@ class MPETTotalPressureSolver(object):
             # Set t to "t"
             t = float(time) + (1.0 - theta)*float(dt)
             time.assign(t)
-            print "time = ", float(time)
             
             # Assemble time-dependent rhs for elliptic equations
             b0 = assemble(L0)    
