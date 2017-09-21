@@ -9,6 +9,8 @@ parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
+notpipelines = pytest.mark.notpipelines
+
 def constant_on_the_donut(n=8, M=8, theta=1.0):
 
     "N is t_he mesh size, M the number of time steps."
@@ -119,6 +121,7 @@ def constant_on_the_donut_nullspaces(n=8, M=8, theta=1.0):
     for (up, t) in solutions:
         info("t = %g" % t)
 
+@notpipelines
 def test_donut():
     constant_on_the_donut()
     constant_on_the_donut_nullspaces()

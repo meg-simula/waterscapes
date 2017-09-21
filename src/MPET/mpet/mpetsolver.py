@@ -269,7 +269,6 @@ class MPETSolver(object):
 
         debug("Assembling form")
         As = range(A)
-
         F = inner(sigma(u), sym(grad(v)))*dx() \
             + sum([-alpha[i]*p[i]*div(v) for i in As])*dx() \
             + sum([-c[i]*(p[i] - p_[i])*w[i] for i in As])*dx() \
