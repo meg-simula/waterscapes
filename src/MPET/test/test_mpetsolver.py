@@ -137,10 +137,6 @@ def single_run(n=8, M=8, theta=1.0):
     solutions = solver.solve()
     for (up, t) in solutions:
         info("t = %g" % t)
-
-        plot(up.sub(0), key="u")
-        plot(up.sub(1), key="p0")
-        plot(up.sub(2), key="p1")
         pass
 
     (u, p0, p1) = up.split()
@@ -153,11 +149,6 @@ def single_run(n=8, M=8, theta=1.0):
     h = mesh.hmin()
     return (u_err_L2, u_err_H1, p_err_L2, p_err_H1, h)
     
-    #up_vec_l2_norm = 12.2519728885
-    #assert(abs(up.vector().norm("l2") - up_vec_l2_norm) < 1.e-10), \
-    #    "l2-norm of solution (%g) not matching reference (%g)." \
-    #    % (up.vector().norm("l2"), up_vec_l2_norm)
-
 def convergence_exp(theta):
     import time
     
@@ -173,8 +164,6 @@ def convergence_exp(theta):
 
     # Iterate over mesh sizes/time steps and compute errors
     start = time.time()
-    print "Start"
-
     if theta == 0.5:
         ms = [4, 8, 16]
     else:
@@ -186,13 +175,9 @@ def convergence_exp(theta):
         hs += [h]
         u_errorsL2 += [erruL2]
         u_errorsH1 += [erruH1]
-        print "\| u(T)  - u_h(T) \|_0 = %r" % erruL2
-        print "\| u(T)  - u_h(T) \|_1 = %r" % erruH1
         for (i, errpi) in enumerate(errpL2):
-            print "\| p_%d(T)  - p_h_%d(T) \|_0 = %r" % (i, i, errpi)
             p_errorsL2[i] += [errpi]
         for (i, errpi) in enumerate(errpH1):
-            print "\| p_%d(T)  - p_h_%d(T) \|_1 = %r" % (i, i, errpi)
             p_errorsH1[i] += [errpi]
 
     # Compute convergence rates:

@@ -118,12 +118,7 @@ def constant_on_the_donut_nullspaces(n=8, M=8, theta=1.0):
     solutions = solver.solve()
     for (up, t) in solutions:
         info("t = %g" % t)
-        plot(up.sub(0), key="u")
-        plot(up.sub(1), key="p0")
-        plot(up.sub(2), key="p1")
 
-    #interactive()
-    
 def test_donut():
     constant_on_the_donut()
     constant_on_the_donut_nullspaces()

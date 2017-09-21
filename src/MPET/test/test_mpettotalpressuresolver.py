@@ -146,39 +146,11 @@ def single_run(n=8, M=8, theta=1.0):
     for i in range(A):
         Q = VP.sub(i+1).collapse()
         assign(solver.up_.sub(i+1), interpolate(problem.p_bar[i], Q))
-
-    # plot(solver.up_.sub(0), key="u", title="u")
-    # plot(solver.up_.sub(1), key="p0", title="p0")
-    # plot(solver.up_.sub(2), key="p1", title="p1")
-    # plot(solver.up_.sub(3), key="p2", title="p2")
-    # plot(problem.u_bar, key="u_ex", title="u_ex", mesh=problem.mesh)
-    # plot(problem.p_bar[0], key="p0_ex", title="p0_ex", mesh=problem.mesh)
-    # plot(problem.p_bar[1], key="p1_ex", title="p1_ex", mesh=problem.mesh)
-    # plot(problem.p_bar[2], key="p2_ex", title="p2_ex", mesh=problem.mesh)
-    # interactive()
     
     # Solve
     solutions = solver.solve()
     for (up, t) in solutions:
         info("t = %g" % t)
-
-        # plot(up.sub(0), key="u")
-        # plot(up.sub(1), key="p0")
-        # plot(up.sub(2), key="p1")
-        # plot(up.sub(3), key="p2")
-        # plot(problem.u_bar, key="u_ex", title="u_ex", mesh=problem.mesh)
-        # plot(problem.p_bar[0], key="p0_ex", title="p0_ex", mesh=problem.mesh)
-        # plot(problem.p_bar[1], key="p1_ex", title="p1_ex", mesh=problem.mesh)
-        # plot(problem.p_bar[2], key="p2_ex", title="p2_ex", mesh=problem.mesh)
-        # plot(problem.f, key="f", title="f", mesh=problem.mesh)
-        # plot(problem.g[0], key="g0", title="g0", mesh=problem.mesh)
-        # plot(problem.g[1], key="g1", title="g1", mesh=problem.mesh)
-        # plot(problem.g[2], key="g2", title="g2", mesh=problem.mesh)
-
-        #plot(diff(div(problem.u_bar), problem.time), key="divu_t", title="divu_t", mesh=problem.mesh)
-
-        pass
-    interactive()
 
     (u, p0, p1, p2) = up.split()
     p = (p1, p2)
@@ -189,16 +161,11 @@ def single_run(n=8, M=8, theta=1.0):
     h = mesh.hmin()
     return (u_err_L2, u_err_H1, p_err_L2, p_err_H1, h)
     
-    #up_vec_l2_norm = 12.2519728885
-    #assert(abs(up.vector().norm("l2") - up_vec_l2_norm) < 1.e-10), \
-    #    "l2-norm of solution (%g) not matching reference (%g)." \
-    #    % (up.vector().norm("l2"), up_vec_l2_norm)
-
 def convergence_exp(theta):
     import time
     
     # Remove all output from FEniCS (except errors)
-    set_log_level(WARNING)
+    set_log_level(ERROR)
 
     # Make containers for errors
     u_errorsL2 = []
@@ -209,26 +176,22 @@ def convergence_exp(theta):
 
     # Iterate over mesh sizes/time steps and compute errors
     start = time.time()
-    print "Start"
-
     if theta == 0.5:
+        ns = [8, 16, 32]
         ms = [4, 8, 16]
     else:
-        ms = [4, 16, 64]
+        ns = [8, 16, 32]
+        ms = [8, 8*4, 8*4**2]
 
-    for (n, m) in zip([8, 16, 32], ms):
+    for (n, m) in zip(ns, ms):
         print "(n, m) = ", (n, m)
         (erruL2, erruH1, errpL2, errpH1, h) = single_run(n, m, theta)
         hs += [h]
         u_errorsL2 += [erruL2]
         u_errorsH1 += [erruH1]
-        print "\| u(T)  - u_h(T) \|_0 = %r" % erruL2
-        print "\| u(T)  - u_h(T) \|_1 = %r" % erruH1
         for (i, errpi) in enumerate(errpL2):
-            print "\| p_%d(T)  - p_h_%d(T) \|_0 = %r" % (i, i, errpi)
             p_errorsL2[i] += [errpi]
         for (i, errpi) in enumerate(errpH1):
-            print "\| p_%d(T)  - p_h_%d(T) \|_1 = %r" % (i, i, errpi)
             p_errorsH1[i] += [errpi]
 
     # Compute convergence rates:
@@ -261,7 +224,7 @@ def convergence_exp(theta):
 def test_convergence():
     convergence_exp(0.5)
     convergence_exp(1.0)
-    
+
 if __name__ == "__main__":
 
     test_convergence()
