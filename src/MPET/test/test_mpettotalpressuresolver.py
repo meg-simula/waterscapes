@@ -83,7 +83,7 @@ def exact_solutions(params):
     g = [None for i in range(A)]
     g[0] = 0.0
     for i in range(1,A):
-        g[i] = - c*diff(p[i], t) \
+        g[i] = - c[i]*diff(p[i], t) \
                - alpha[i]/lmbda *diff((p[0] + sum([alpha[j]*p[j] for j in range(1,A)])), t) \
                + sum([diff(K[i]*grad_p[i][j], x[j]) for j in range(d)]) \
                - sum(S[i][j]*(p[i] - p[j]) for j in range(1,A))
@@ -108,7 +108,7 @@ def single_run(n=8, M=8, theta=1.0):
 
     # Define material parameters in MPET equations
     A = 3
-    c = 1.0
+    c = (None, 1.0, 1.0)
     alpha = (None, 1.0, 1.0)
     K = (None, 1.0, 1.0)
     S = ((None, None, None), (None, 1.0, 1.0), (None, 1.0, 1.0))

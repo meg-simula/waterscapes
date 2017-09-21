@@ -260,7 +260,7 @@ class MPETTotalPressureSolver(object):
         F = inner(2*mu*sym(grad(u)), sym(grad(v)))*dx() \
             + p[0]*div(v)*dx()\
             + (div(u) - 1./lmbda*sum([alpha[i]*p[i] for i in As]) -1./lmbda*p[0])*w[0]*dx()\
-            + sum([-c*(p[i] -p_[i])*w[i] for i in As])*dx()\
+            + sum([-c[i]*(p[i] -p_[i])*w[i] for i in As])*dx()\
             - sum([ alpha[i]/lmbda*(p[0]-p_[0] + sum([alpha[j]*(p[j]-p_[j]) for j in As]))*w[i] for i in As])*dx() \
             + sum([-dt*K[i]*inner(grad(pm[i]), grad(w[i])) for i in As])*dx() \
             + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \

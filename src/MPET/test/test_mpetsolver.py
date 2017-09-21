@@ -72,7 +72,7 @@ def exact_solutions(params):
     # Compute g
     g = [None for i in range(A)]
     for i in range(A):
-        g[i] = - c*diff(p[i], t) - alpha[i]*diff(div_u, t) \
+        g[i] = - c[i]*diff(p[i], t) - alpha[i]*diff(div_u, t) \
                + sum([diff(K[i]*grad_p[i][j], x[j]) for j in range(d)]) \
                - sum(S[i][j]*(p[i] - p[j]) for j in range(A))
     g = [sympy.simplify(gi) for gi in g]
@@ -95,7 +95,7 @@ def single_run(n=8, M=8, theta=1.0):
 
     # Define material parameters in MPET equations
     A = 2
-    c = 1.0
+    c = (1.0, 1.0)
     alpha = (1.0, 1.0)
     K = (1.0, 1.0)
     S = ((1.0, 1.0), (1.0, 1.0))

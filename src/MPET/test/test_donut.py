@@ -19,8 +19,8 @@ def constant_on_the_donut(n=8, M=8, theta=1.0):
 
     # Define material parameters in MPET equations
     A = 1
-    c = 0.0
-    alpha = (1.0, 1.0)
+    c = (0.0,)
+    alpha = (1.0,)
     K = (1.e-2,)
     S = ((0.0,),)
     E = 500 # Pa
@@ -77,7 +77,7 @@ def constant_on_the_donut_nullspaces(n=8, M=8, theta=1.0):
 
     # Define material parameters in MPET equations
     A = 2
-    c = 0.0
+    c = (0.0, 0.0)
     alpha = (1.0, 1.0)
     K = (1.e-2, 1.e-1)
     S = ((0.0, 0.0), (0.0, 0.0))
