@@ -182,12 +182,12 @@ class MPETSolver(object):
         p_nullspace = self.problem.pressure_nullspace
         dimQ = sum(p_nullspace)
         if u_nullspace:
-            info("Nullspace for u detected")
+            debug("Nullspace for u detected")
             Z = rigid_motions(self.problem.mesh)
             dimZ = len(Z)
             RU = VectorElement('R', mesh.ufl_cell(), 0, dimZ)
             if dimQ:
-                info("Nullspace for p detected")
+                debug("Nullspace for p detected")
                 RP = [FiniteElement('R', mesh.ufl_cell(), 0)
                       for i in range(dimQ)]
                 M = MixedElement([V] + [W for i in range(A)] + [RU] + RP)
@@ -195,40 +195,32 @@ class MPETSolver(object):
                 M = MixedElement([V] + [W for i in range(A)] + [RU])
         else:
             if dimQ:
-                info("Nullspace for p, but not for u detected")
+                debug("Nullspace for p, but not for u detected")
                 RP = [FiniteElement('R', mesh.ufl_cell(), 0)
                       for i in range(dimQ)]
                 M = MixedElement([V] + [W for i in range(A)] + RP)
             else:
-                info("Constructing standard variational form")
+                debug("Constructing standard variational form")
                 M = MixedElement([V] + [W for i in range(A)])
 
-        info("Constructing Function Space")
+        debug("Constructing Function Space")
         VW = FunctionSpace(mesh, M)
+
         # Create previous solution field(s) and extract previous
         # displacement solution u_ and pressures p_ = (p_1, ..., p_A)
-
-        info("Function")
         up_ = Function(VW)
-        info("Splitting u")
-
         u_ = split(up_)[0]
-        info("Splitting p")
         p_ = split(up_)[1:A+1]
-
-
         
         # Create trial functions and extract displacement u and pressure
         # trial functions p = (p_1, ..., p_A)
 
-        info("Trial Function")
         up = TrialFunctions(VW)
         u = up[0]
         p = up[1:A+1]
 
         # Create test functions and extract displacement u and pressure
         # test functions p = (p_1, ..., p_A)
-        info("Test Function")
         vw = TestFunctions(VW)
         v = vw[0]
         w = vw[1:A+1]
@@ -275,9 +267,8 @@ class MPETSolver(object):
         # Define variational form to be solved at each time-step.
         dx = Measure("dx", domain=mesh)
 
-        info("Assembling form")
+        debug("Assembling form")
         As = range(A)
-        info("Assembling F")
         F = inner(sigma(u), sym(grad(v)))*dx() \
             + sum([-alpha[i]*p[i]*div(v) for i in As])*dx() \
             + sum([- c*(p[i] - p_[i])*w[i] for i in As])*dx() \
@@ -295,7 +286,7 @@ class MPETSolver(object):
             
         # Add orthogonality vefrsus rigid motions if nullspace for the
         # displacement
-        info("Assembling nullspace for u")
+        debug("Assembling nullspace for u")
         if u_nullspace:
             F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
                  + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
