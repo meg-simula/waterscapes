@@ -41,15 +41,17 @@ class MPETProblem(object):
 
         As = range(self.params["A"])
 
+        gdim = self.mesh.geometry().dim()
+        
         # Default values for forces and sources
-        self.f = Constant((0.0, 0.0))
-        self.s = Constant((0.0, 0.0))
+        self.f = Constant((0.0,)*gdim) 
+        self.s = Constant((0.0,)*gdim)
         self.g = [Constant(0.0) for i in As]
         self.I = [Constant(0.0) for i in As]
         self.beta = [Constant(0.0) for i in As]
         self.p_robin = [Constant(0.0) for i in As]
         # Default values for Dirichlet boundary conditions
-        self.u_bar = Constant((0.0, 0.0))
+        self.u_bar = Constant((0.0,)*gdim)
         self.p_bar = [Constant(0.0) for i in As]
 
         # Default markers, one for the momentum equation and one for

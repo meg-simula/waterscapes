@@ -224,7 +224,7 @@ class MPETSolver(object):
         vw = TestFunctions(VW)
         v = vw[0]
         w = vw[1:A+1]
-
+        
         # Extract test and trial functions corresponding to the
         # nullspace Lagrange multiplier
         if u_nullspace == True:
