@@ -113,7 +113,8 @@ class MPETSolver(object):
             self.params.update(params)
 
         # Initialize objects and store
-        F, L0, L1, L2, up_, up = self.create_variational_forms()
+        F, L0, L1, L2, P, up_, up = self.create_variational_forms()
+        self.P = P
         self.F = F
         self.L0 = L0
         self.L1 = L1
@@ -317,10 +318,21 @@ class MPETSolver(object):
             L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
                   
             L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)]
-        # Set solution field(s)
+        # Set preconditioner form
+
+        P = 0
+        if self.params.direct_solver == False:
+            info("Assembling preconditioner")
+            mu = E/(2.0*((1.0 + nu)))
+            pu = mu * inner(grad(u), grad(v))*dx + inner(u,v)*dx 
+            pp = sum((c[i] + 1.0)*p[i]*q[i]*dx + dt*theta* K[i]*inner(grad(p[i]), grad(q[i]))*dx \
+                    + dt*theta*S[i]*p[i]*q[i]*dx
+                    for i in As)
+            P += pu + pp
+
         up = Function(VW)
         
-        return F, L0, L1, L2, up_, up
+        return F, L0, L1, L2, P, up_, up
 
     def solve(self):
         """Solve given MPET problem, yield solutions at each time step.
@@ -339,6 +351,7 @@ class MPETSolver(object):
         L0 = self.L0
         L1 = self.L1
         L2 = self.L2
+        P = self.P
         # Extract essential bcs
         [bcs0, bcs1] = self.create_dirichlet_bcs()
         bcs = bcs0 + bcs1
@@ -355,8 +368,14 @@ class MPETSolver(object):
                 A.axpy(1.0, A2, False)
         
         # Create solver
-        solver = LUSolver(A)
-        
+        if self.params.direct_solver == True:
+            solver = LUSolver(A)
+        else
+            solver = PETScKrylovSolver("minres", "hypre_amg")
+            # solver.parameters.update(self.params["krylov_solver"])
+            solver.set_operators(A, P)
+
+
         # Start with up as up_, can help Krylov Solvers
         self.up.assign(self.up_)
 

@@ -59,11 +59,21 @@ def biot_El623404():
     mesh_file.read(mesh, '/mesh', False)
     sub_domains = MeshFunction("size_t", mesh)
     mesh_file.read(sub_domains, "/subdomains")
-    MeshPartitioning.build_distributed_mesh(mesh)
+    mesh_file.close()
+    # MeshPartitioning.build_distributed_mesh(mesh)
 
     sub_cells = CellFunction("size_t", mesh, 0)
+    DG = FunctionSpace(mesh, "DG", 0)
+    pressure = Function(DG)
 
+    for cell in cells(mesh):
+        pressure.vector()[cell.index()] = 133.322
+    
     exit()
+
+	# MPI.barrier(mpi_comm_world())
+
+	# print MPI.rank(mpi_comm_world())
     # mesh = UnitCubeMesh(50,50,50)
 
     # sub_domains = MeshFunction("size_t", mesh, 3)
@@ -86,12 +96,6 @@ def biot_El623404():
     all_boundary.mark(problem.momentum_boundary_markers, 0)
     for i in range(A):
         all_boundary.mark(problem.continuity_boundary_markers[i], 0)
-
-    DG = FunctionSpace(mesh, "DG", 0)
-
-    f = HDF5File(mpi_comm_world(),'p_bar.h5', 'r')
-    pressure = Function(DG)
-    f.read(pressure, "/initial")
 
     # for i in range(len(sub_cells)):
     #     print "i = ", i
