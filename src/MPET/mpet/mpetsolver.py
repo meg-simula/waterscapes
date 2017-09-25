@@ -325,9 +325,8 @@ class MPETSolver(object):
             info("Assembling preconditioner")
             mu = E/(2.0*((1.0 + nu)))
             pu = mu * inner(grad(u), grad(v))*dx + inner(u,v)*dx 
-            pp = sum((c[i] + 1.0)*p[i]*q[i]*dx + dt*theta* K[i]*inner(grad(p[i]), grad(q[i]))*dx \
-                    + dt*theta*S[i]*p[i]*q[i]*dx
-                    for i in As)
+            pp = sum([(c[i] + 1.0)*p[i]*w[i]*dx + dt*theta* K[i]*inner(grad(p[i]), grad(w[i]))*dx \
+                      + dt*theta*S[i][i]*p[i]*w[i]*dx for i in As])
             P += pu + pp
 
         up = Function(VW)
@@ -370,7 +369,7 @@ class MPETSolver(object):
         # Create solver
         if self.params.direct_solver == True:
             solver = LUSolver(A)
-        else
+        else:
             PP, _ = assemble_system(P, L, bcs)
             solver = PETScKrylovSolver("minres", "hypre_amg")
             # solver.parameters.update(self.params["krylov_solver"])
