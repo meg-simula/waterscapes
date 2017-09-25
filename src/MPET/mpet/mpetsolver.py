@@ -359,21 +359,22 @@ class MPETSolver(object):
         # Assemble left-hand side matrix
         
         info("Assembling a")        
-        A = assemble(a) 
+        A, _ = assemble_system(a, L, bcs)  
 
         info("Assembling L2")        
 
         for L2i in L2: 
-                A2 = assemble(lhs(L2i))
+                A2, _ = assemble_system(lhs(L2i), L, bcs)
                 A.axpy(1.0, A2, False)
         
         # Create solver
         if self.params.direct_solver == True:
             solver = LUSolver(A)
         else
+            PP, _ = assemble_system(P, L, bcs)
             solver = PETScKrylovSolver("minres", "hypre_amg")
             # solver.parameters.update(self.params["krylov_solver"])
-            solver.set_operators(A, P)
+            solver.set_operators(A, PP)
 
 
         # Start with up as up_, can help Krylov Solvers
@@ -383,7 +384,7 @@ class MPETSolver(object):
 
             # Handle the different parts of the rhs a bit differently
             # due to theta-scheme
-            b = assemble(L)
+            _ , b = assemble_system(a, L, bcs) 
 
             # Set t_theta to t + dt (when theta = 1.0) or t + 1/2 dt
             # (when theta = 0.5)
@@ -392,23 +393,23 @@ class MPETSolver(object):
 
             # Assemble time-dependent rhs for parabolic equations
             for L1i in L1: 
-                b1 = assemble(L1i)
+                _, b1 = assemble_system(a, L1i, bcs)
                 b.axpy(1.0, b1)
             
             for L2i in L2: 
-                b2 = assemble(rhs(L2i))
+                _, b2 = assemble_system(a, rhs(L2i), bcs)
                 b.axpy(1.0, b2)    
             # Set t to "t"
             t = float(time) + (1.0 - theta)*float(dt)
             time.assign(t)
             
             # Assemble time-dependent rhs for elliptic equations
-            b0 = assemble(L0)    
+            _, b0 = assemble_system(a, L0, bcs)     
             b.axpy(1.0, b0)
 
             # Apply boundary conditions
-            for bc in bcs:
-                bc.apply(A, b)
+            # for bc in bcs:
+            #     bc.apply(A, b)
             
             # Solve
             solver.solve(self.up.vector(), b)
