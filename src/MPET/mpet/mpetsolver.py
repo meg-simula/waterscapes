@@ -316,8 +316,9 @@ class MPETSolver(object):
             markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
             L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
-                  
-            L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)]
+            
+            #FIXME: Constant(0.0)*p[i]*w[i]*dx() this term has been        
+            L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i](ROBIN_MARKER) + Constant(0.0)*p[i]*w[i]*dx()]
         # Set preconditioner form
 
         P = 0
@@ -363,7 +364,8 @@ class MPETSolver(object):
         info("Assembling L2")        
 
         for L2i in L2: 
-                A2, _ = assemble_system(lhs(L2i), L, bcs)
+                A2, _ = assemble_system(lhs(L2i), L, bcs) 
+                A2 = assemble(lhs(L2i))
                 A.axpy(1.0, A2, False)
         
         # Create solver
@@ -411,8 +413,8 @@ class MPETSolver(object):
             #     bc.apply(A, b)
             
             # Solve
-            solver.solve(self.up.vector(), b)
-
+            niter = solver.solve(self.up.vector(), b)
+            print "niter = ", niter
             # Yield solution and time
             yield self.up, float(time)
 

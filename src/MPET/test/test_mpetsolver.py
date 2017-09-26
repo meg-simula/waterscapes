@@ -3,7 +3,7 @@ __all__ = []
 
 import pytest
 from mpet import *
-
+set_log_level(13)
 # Turn on FEniCS optimizations
 parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
@@ -201,7 +201,7 @@ def convergence_exp(theta):
     # Test that convergence rates are in agreement with theoretical
     # expectation asymptotically
     assert (u_ratesH1[-1] > 1.95), "H1 convergence in u failed"
-    assert (u_ratesL2[-1] > 1.90), "H1 convergence in u failed"
+    assert (u_ratesL2[-1] > 1.90), "L2 convergence in u failed"
     assert (p0_ratesL2[-1] > 1.90), "L2 convergence in p0 failed"
     assert (p1_ratesL2[-1] > 1.90), "L2 convergence in p1 failed"
     assert (p0_ratesH1[-1] > 0.95), "H1 convergence in p0 failed"
