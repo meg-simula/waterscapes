@@ -143,9 +143,9 @@ def single_run(n=8, M=8, theta=1.0):
     VP = solver.up_.function_space()
     V = VP.sub(0).collapse()
     assign(solver.up_.sub(0), interpolate(problem.u_bar, V))
-    for i in range(A):
+    for i in range(A+1):
         Q = VP.sub(i+1).collapse()
-        assign(solver.up_.sub(i+1), interpolate(problem.p_bar[i], Q))
+        assign(solver.up_.sub(i+1), interpolate(p_ex[i], Q))
     
     # Solve
     solutions = solver.solve()
@@ -156,8 +156,8 @@ def single_run(n=8, M=8, theta=1.0):
     p = (p1, p2)
     u_err_L2 = errornorm(problem.u_bar, u, "L2", degree_rise=5)
     u_err_H1 = errornorm(problem.u_bar, u, "H1", degree_rise=5)
-    p_err_L2 = [errornorm(problem.p_bar[i+1], p[i], "L2", degree_rise=5) for i in range(A)]
-    p_err_H1 = [errornorm(problem.p_bar[i+1], p[i], "H1", degree_rise=5) for i in range(A)]
+    p_err_L2 = [errornorm(problem.p_bar[i], p[i], "L2", degree_rise=5) for i in range(A)]
+    p_err_H1 = [errornorm(problem.p_bar[i], p[i], "H1", degree_rise=5) for i in range(A)]
     h = mesh.hmin()
     return (u_err_L2, u_err_H1, p_err_L2, p_err_H1, h)
     
