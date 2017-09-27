@@ -291,9 +291,9 @@ class MPETSolver(object):
         if self.params.direct_solver == False:
             info("Assembling preconditioner")
             mu = E/(2.0*((1.0 + nu)))
-            pu = mu * inner(grad(u), grad(v))*dx 
-            pp = sum([c[i]*p[i]*w[i]*dx() + dt*theta* K[i]*inner(grad(p[i]), grad(w[i]))*dx \
-                      + dt*theta*S[i][i]*p[i]*w[i]*dx for i in As])
+            pu = mu * inner(grad(u), grad(v))*dx() 
+            pp = sum([c[i]*p[i]*w[i]*dx() + dt*theta* K[i]*inner(grad(p[i]), grad(w[i]))*dx() \
+                      + dt*theta*S[i][i]*p[i]*w[i]*dx() for i in As])
             P += pu + pp
 
         # Add orthogonality vefrsus rigid motions if nullspace for the
@@ -302,7 +302,8 @@ class MPETSolver(object):
         if u_nullspace:
             F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
                  + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
-            P += sum(z[i]*r[i]*dx() for i in range(dimZ)) + inner(u,v)*dx() 
+            if self.params.direct_solver == False:     
+                P += sum(z[i]*r[i]*dx() for i in range(dimZ)) + inner(u,v)*dx() 
             
         # Add orthogonality versus constants if nullspace for the
         # displacement
@@ -311,7 +312,8 @@ class MPETSolver(object):
             for (k, p_nullspace) in enumerate(self.problem.pressure_nullspace):
                 if p_nullspace:
                     F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
-                    P += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx() 
+                    if self.params.direct_solver == False:     
+                        P += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx() 
                     i += 1
                     
         # Add body force and traction boundary condition for momentum equation
@@ -330,11 +332,8 @@ class MPETSolver(object):
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
             L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
             
-            #FIXME: Constant(0.0)*p[i]*w[i]*dx() this term has been        
+            #FIXME: Constant(0.0)*p[i]*w[i]*dx() this term has been added to make the assemble_system possible        
             L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i](ROBIN_MARKER) + Constant(0.0)*p[i]*w[i]*dx()]
-        # Set preconditioner form
-
-
 
         up = Function(VW)
         

@@ -262,17 +262,19 @@ class MPETTotalPressureSolver(object):
             + p[0]*div(v)*dx()\
             + (div(u) - 1./lmbda*sum([alpha[i]*p[i+1] for i in As]) -1./lmbda*p[0])*w[0]*dx()\
             + sum([-c[i]*(p[i+1] -p_[i+1])*w[i+1] for i in As])*dx()\
-            - sum([ alpha[i]/lmbda*(p[0]-p_[0] + sum([alpha[j+1]*(p[j+1]-p_[j+1]) for j in As]))*w[i+1] for i in As])*dx() \
+            - sum([ alpha[i]/lmbda*(p[0]-p_[0] + sum([alpha[j]*(p[j+1]-p_[j+1]) for j in As]))*w[i+1] for i in As])*dx() \
             + sum([-dt*K[i]*inner(grad(pm[i+1]), grad(w[i+1])) for i in As])*dx() \
             + sum([sum([-dt*S[i][j]*(pm[i+1] - pm[j+1])*w[i+1] for j in As]) \
                     for i in As])*dx() \
+
+        P = 0
         if self.params.direct_solver == False:
-        
+
         # Define preconditioner form:
             pu = mu * inner(grad(u), grad(v))*dx()
-            pp = sum(alpha[i]*alpha[i]/lmbda*p[i+1]*q[i+1]*dx() + dt*theta*K[i]*inner(grad(p[i+1]), grad(q[i+1]))*dx() \
-            	    + (c[i] + dt*theta*S[i][i])*p[i+1]*q[i+1]*dx() for i in As)
-            ppt = p[0]*q[0]*dx()
+            pp = sum(alpha[i]*alpha[i]/lmbda*p[i+1]*w[i+1]*dx() + dt*theta*K[i]*inner(grad(p[i+1]), grad(w[i+1]))*dx() \
+                    + (c[i] + dt*theta*S[i][i])*p[i+1]*w[i+1]*dx() for i in As)
+            ppt = p[0]*w[0]*dx()
             P = pu + pp + ppt
             
         # Add orthogonality versus rigid motions if nullspace for the
@@ -347,18 +349,18 @@ class MPETTotalPressureSolver(object):
         A, _ = assemble_system(a, L, bcs)  
 
         for L2i in L2: 
-		        A2, _ = assemble_system(lhs(L2i), L, bcs)  
-                A.axpy(1.0, A2, False)
+            A2, _ = assemble_system(lhs(L2i), L, bcs)  
+            A.axpy(1.0, A2, False)
         
         # Create solver
         if self.params.direct_solver == True:
-        	solver = LUSolver(A)
+            solver = LUSolver(A)
         else:
             PP, _ = assemble_system(P, L, bcs)
             solver = PETScKrylovSolver("minres", "hypre_amg")
             # solver.parameters.update(self.params["krylov_solver"])
             solver.set_operators(A, PP)
-
+            
         
         # Start with up as up_, can help Krylov Solvers
         self.up.assign(self.up_)
@@ -376,24 +378,24 @@ class MPETTotalPressureSolver(object):
 
             # Assemble time-dependent rhs for parabolic equations
             for L1i in L1: 
-		        _, b1 = assemble_system(a, L1i, bcs)  
+                _, b1 = assemble_system(a, L1i, bcs)  
                 b.axpy(1.0, b1)
             
             for L2i in L2: 
-		        _, b2 = assemble_system(a, rhs(L2i), bcs)
+                _, b2 = assemble_system(a, rhs(L2i), bcs)
                 b.axpy(1.0, b2)    
             # Set t to "t"
             t = float(time) + (1.0 - theta)*float(dt)
             time.assign(t)
             
             # Assemble time-dependent rhs for elliptic equations
-	        _, b0 = assemble_system(a, L0, bcs)
+            _, b0 = assemble_system(a, L0, bcs)
             b.axpy(1.0, b0)
 
             # Apply boundary conditions            
             # Solve
-            solver.solve(self.up.vector(), b)
-
+            niter =solver.solve(self.up.vector(), b)
+            print "niter = ", niter
             # Yield solution and time
             yield self.up, float(time)
             # Update previous solution up_ with current solution up
