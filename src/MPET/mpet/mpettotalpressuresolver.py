@@ -104,14 +104,15 @@ class MPETTotalPressureSolver(object):
             self.params.update(params)
 
         # Initialize objects and store
-        F, L0, L1, L2, up_, up = self.create_variational_forms()
+        F, L0, L1, L2, P, up_, up = self.create_variational_forms()
         self.F = F
         self.L0 = L0
         self.L1 = L1
         self.L2 = L2
+        self.P = P
         self.up_ = up_
         self.up = up
-
+    
     def create_dirichlet_bcs(self):
         """Extract information about Dirichlet boundary conditions from given
         MPET problem.
@@ -129,9 +130,9 @@ class MPETTotalPressureSolver(object):
         # Boundary conditions for continuity equation
         bcs1 = []
         p_bar = self.problem.p_bar
-        for i in range(1,self.problem.params["A"]):
+        for i in range(self.problem.params["A"]):
             markers = self.problem.continuity_boundary_markers[i]
-            bcs1 += [DirichletBC(VP.sub(i+1), p_bar[i], markers, 0)]
+            bcs1 += [DirichletBC(VP.sub(i+2), p_bar[i], markers, 0)]
 
         return [bcs0, bcs1]
     
@@ -180,37 +181,37 @@ class MPETTotalPressureSolver(object):
                 info("Nullspace for p detected")
                 RP = [FiniteElement('R', mesh.ufl_cell(), 0)
                       for i in range(dimQ)]
-                M = MixedElement([V] + [W for i in range(A)] + [RU] + RP)
+                M = MixedElement([V] + [W for i in range(A+1)] + [RU] + RP)
             else:
-                M = MixedElement([V] + [W for i in range(A)] + [RU])
+                M = MixedElement([V] + [W for i in range(A+1)] + [RU])
         else:
             if dimQ:
                 info("Nullspace for p, but not for u detected")
                 RP = [FiniteElement('R', mesh.ufl_cell(), 0)
                       for i in range(dimQ)]
-                M = MixedElement([V] + [W for i in range(A)] + RP)
+                M = MixedElement([V] + [W for i in range(A+1)] + RP)
             else:
                 info("Constructing standard variational form")
-                M = MixedElement([V] + [W for i in range(A)])
+                M = MixedElement([V] + [W for i in range(A+1)])
 
         VW = FunctionSpace(mesh, M)
         # Create previous solution field(s) and extract previous
         # displacement solution u_ and pressures p_ = (p_1, ..., p_A)
         up_ = Function(VW)
         u_ = split(up_)[0]
-        p_ = split(up_)[1:A+1]
+        p_ = split(up_)[1:A+2]
         
         # Create trial functions and extract displacement u and pressure
-        # trial functions p = (p_1, ..., p_A)
+        # trial functions p = (p_0,p_1, ..., p_A)
         up = TrialFunctions(VW)
         u = up[0]
-        p = up[1:A+1]
+        p = up[1:A+2]
 
         # Create test functions and extract displacement u and pressure
-        # test functions p = (p_1, ..., p_A)
+        # test functions p = (p_0, p_1, ..., p_A)
         vw = TestFunctions(VW)
         v = vw[0]
-        w = vw[1:A+1]
+        w = vw[1:A+2]
 
         # Extract test and trial functions corresponding to the
         # nullspace Lagrange multiplier
@@ -230,7 +231,7 @@ class MPETTotalPressureSolver(object):
         # um and pm represent the solutions at time t + dt*theta
         theta = self.params.theta
         um = theta*u + (1.0 - theta)*u_
-        pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in range(A)]
+        pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in range(A+1)]
         
         # Extract material parameters from problem
         E = self.problem.params["E"]          
@@ -254,17 +255,25 @@ class MPETTotalPressureSolver(object):
         lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
         mu = E/(2.0*(1.0+nu))
 
-        As = range(1,A)
+        As = range(A)
 
         #FIXME
         F = inner(2*mu*sym(grad(u)), sym(grad(v)))*dx() \
             + p[0]*div(v)*dx()\
-            + (div(u) - 1./lmbda*sum([alpha[i]*p[i] for i in As]) -1./lmbda*p[0])*w[0]*dx()\
-            + sum([-c[i]*(p[i] -p_[i])*w[i] for i in As])*dx()\
-            - sum([ alpha[i]/lmbda*(p[0]-p_[0] + sum([alpha[j]*(p[j]-p_[j]) for j in As]))*w[i] for i in As])*dx() \
-            + sum([-dt*K[i]*inner(grad(pm[i]), grad(w[i])) for i in As])*dx() \
-            + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \
+            + (div(u) - 1./lmbda*sum([alpha[i]*p[i+1] for i in As]) -1./lmbda*p[0])*w[0]*dx()\
+            + sum([-c[i]*(p[i+1] -p_[i+1])*w[i+1] for i in As])*dx()\
+            - sum([ alpha[i]/lmbda*(p[0]-p_[0] + sum([alpha[j+1]*(p[j+1]-p_[j+1]) for j in As]))*w[i+1] for i in As])*dx() \
+            + sum([-dt*K[i]*inner(grad(pm[i+1]), grad(w[i+1])) for i in As])*dx() \
+            + sum([sum([-dt*S[i][j]*(pm[i+1] - pm[j+1])*w[i+1] for j in As]) \
                     for i in As])*dx() \
+        if self.params.direct_solver == False:
+        
+        # Define preconditioner form:
+            pu = mu * inner(grad(u), grad(v))*dx()
+            pp = sum(alpha[i]*alpha[i]/lmbda*p[i+1]*q[i+1]*dx() + dt*theta*K[i]*inner(grad(p[i+1]), grad(q[i+1]))*dx() \
+            	    + (c[i] + dt*theta*S[i][i])*p[i+1]*q[i+1]*dx() for i in As)
+            ppt = p[0]*q[0]*dx()
+            P = pu + pp + ppt
             
         # Add orthogonality versus rigid motions if nullspace for the
         # displacement
@@ -272,6 +281,11 @@ class MPETTotalPressureSolver(object):
 
             F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
                  + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
+            
+            if self.params.direct_solver == False:
+                # Since there are no bc on u I need to make the preconditioner pd adding a mass matrix
+                P += inner(u, v)*dx
+                P += sum(z[i]*r[i]*dx for i in range(dimZ))
 
         # Add orthogonality versus constants if nullspace for the
         # displacement
@@ -280,6 +294,8 @@ class MPETTotalPressureSolver(object):
             for (k, p_nullspace) in enumerate(self.problem.pressure_nullspace):
                 if p_nullspace:
                     F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
+                    if self.params.direct_solver == False:     
+                        P += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx()  
                     i += 1
         
         # Add body force and traction boundary condition for momentum equation
@@ -293,16 +309,16 @@ class MPETTotalPressureSolver(object):
         dsc = []
         L1 = []
         L2 = []
-        for i in range(A):
-            markers = self.problem.continuity_boundary_markers[i]
+        for i in As:
+            markers = self.problem.continuity_boundary_markers[i-1]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
-            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
+            L1 += [dt*g[i]*w[i+1]*dx() + dt*I[i]*w[i+1]*dsc[i](NEUMANN_MARKER)]
 
-            L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)]
+            L2 += [dt*beta[i]*(-pm[i+1]+p_robin[i])*w[i+1]*dsc[i](ROBIN_MARKER) +  Constant(0.0)*p[i+1]*w[i+1]*dx()]
         # Set solution field(s)
         up = Function(VW)
         
-        return F, L0, L1, L2, up_, up
+        return F, L0, L1, L2, P, up_, up
 
     def solve(self):
         """Solve given MPET problem, yield solutions at each time step.
@@ -321,20 +337,28 @@ class MPETTotalPressureSolver(object):
         L0 = self.L0
         L1 = self.L1
         L2 = self.L2
+        P = self.P
         # Extract essential bcs
         [bcs0, bcs1] = self.create_dirichlet_bcs()
         bcs = bcs0 + bcs1
         
         # Assemble left-hand side matrix
                 
-        A = assemble(a) 
+        A, _ = assemble_system(a, L, bcs)  
 
         for L2i in L2: 
-                A2 = assemble(lhs(L2i))
+		        A2, _ = assemble_system(lhs(L2i), L, bcs)  
                 A.axpy(1.0, A2, False)
         
         # Create solver
-        solver = LUSolver(A)
+        if self.params.direct_solver == True:
+        	solver = LUSolver(A)
+        else:
+            PP, _ = assemble_system(P, L, bcs)
+            solver = PETScKrylovSolver("minres", "hypre_amg")
+            # solver.parameters.update(self.params["krylov_solver"])
+            solver.set_operators(A, PP)
+
         
         # Start with up as up_, can help Krylov Solvers
         self.up.assign(self.up_)
@@ -343,7 +367,7 @@ class MPETTotalPressureSolver(object):
 
             # Handle the different parts of the rhs a bit differently
             # due to theta-scheme
-            b = assemble(L)
+            _, b = assemble_system(a, L, bcs)  
 
             # Set t_theta to t + dt (when theta = 1.0) or t + 1/2 dt
             # (when theta = 0.5)
@@ -352,24 +376,21 @@ class MPETTotalPressureSolver(object):
 
             # Assemble time-dependent rhs for parabolic equations
             for L1i in L1: 
-                b1 = assemble(L1i)
+		        _, b1 = assemble_system(a, L1i, bcs)  
                 b.axpy(1.0, b1)
             
             for L2i in L2: 
-                b2 = assemble(rhs(L2i))
+		        _, b2 = assemble_system(a, rhs(L2i), bcs)
                 b.axpy(1.0, b2)    
             # Set t to "t"
             t = float(time) + (1.0 - theta)*float(dt)
             time.assign(t)
             
             # Assemble time-dependent rhs for elliptic equations
-            b0 = assemble(L0)    
+	        _, b0 = assemble_system(a, L0, bcs)
             b.axpy(1.0, b0)
 
-            # Apply boundary conditions
-            for bc in bcs:
-                bc.apply(A, b)
-            
+            # Apply boundary conditions            
             # Solve
             solver.solve(self.up.vector(), b)
 
