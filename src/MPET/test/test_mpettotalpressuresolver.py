@@ -46,16 +46,16 @@ def exact_solutions(params):
 
     p = []
     p += [0]
-    for i in range(1,A):
+    for i in range(1, A+1):
         p += [-(i)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
-    p[0] = lmbda*div_u - sum([alpha[i]*p[i] for i in range(1,A)])
+    p[0] = lmbda*div_u - sum([alpha[i]*p[i+1] for i in range(A)])
 
     # Simplify symbolics 
     u = [sympy.simplify(u[i]) for i in range(d)]
-    p = [sympy.simplify(p[i]) for i in range(A)]
+    p = [sympy.simplify(p[i]) for i in range(A+1)]
 
     # Compute sigma_ast
     grad_u = [[diff(u[i], x[j]) for j in range(d)] for i in range(d)]
@@ -63,7 +63,7 @@ def exact_solutions(params):
     eps_u = [[0.5*(grad_u[i][j] + grad_u[j][i]) for j in range(d)]
              for i in range(d)]
 
-    grad_p = [[diff(p[i], x[j]) for j in range(d)] for i in range(A)]
+    grad_p = [[diff(p[i], x[j]) for j in range(d)] for i in range(A+1)]
 
     sigma_ast = [[2*mu*eps_u[i][j] for j in range(d)] for i in range(d)]
 
@@ -80,19 +80,18 @@ def exact_solutions(params):
     f = [sympy.simplify(fi) for fi in f]
 
     # Compute g
-    g = [None for i in range(A)]
-    g[0] = 0.0
-    for i in range(1,A):
-        g[i] = - c[i]*diff(p[i], t) \
-               - alpha[i]/lmbda *diff((p[0] + sum([alpha[j]*p[j] for j in range(1,A)])), t) \
-               + sum([diff(K[i]*grad_p[i][j], x[j]) for j in range(d)]) \
-               - sum(S[i][j]*(p[i] - p[j]) for j in range(1,A))
+    g = [0 for i in range(A)]
+    for i in range(A):
+        g[i] = - c[i]*diff(p[i+1], t) \
+               - alpha[i]/lmbda *diff((p[0] + sum([alpha[j]*p[j+1] for j in range(A)])), t) \
+               + sum([diff(K[i]*grad_p[i+1][j], x[j]) for j in range(d)]) \
+               - sum(S[i][j]*(p[i+1] - p[j+1]) for j in range(A))
 
     g = [sympy.simplify(gi) for gi in g]
 
     # Print sympy expressions as c++ code
     u_str = [sympy.printing.ccode(u[i]) for i in range(d)]
-    p_str = [sympy.printing.ccode(p[i]) for i in range(A)]
+    p_str = [sympy.printing.ccode(p[i]) for i in range(A+1)]
     f_str = [sympy.printing.ccode(f[i]) for i in range(d)]
     g_str = [sympy.printing.ccode(g[i]) for i in range(A)]
     
@@ -100,18 +99,18 @@ def exact_solutions(params):
     
 def single_run(n=8, M=8, theta=1.0):
 
-    "N is t_he mesh size, M the number of time steps."
+    "N is the mesh size, M the number of time steps."
     
     # Define end time T and timestep dt
     T = 1.0
     dt = float(T/M)
 
     # Define material parameters in MPET equations
-    A = 3
-    c = (None, 1.0, 1.0)
-    alpha = (None, 1.0, 1.0)
-    K = (None, 1.0, 1.0)
-    S = ((None, None, None), (None, 1.0, 1.0), (None, 1.0, 1.0))
+    A = 2
+    c = (1.0, 1.0)
+    alpha = (1.0, 1.0)
+    K = (1.0, 1.0)
+    S = ((1.0, 1.0), (1.0, 1.0))
     E = 1.0
     nu = 0.35
     params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
@@ -126,12 +125,13 @@ def single_run(n=8, M=8, theta=1.0):
     problem.f = Expression(f, t=time, degree=3)
     problem.g = [Expression(g[i], t=time, degree=3) for i in range(A)]
     problem.u_bar = Expression(u_e, t=time, degree=3)
-    problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(A)]
 
+    p_ex = [Expression(p_e[i], t=time, degree=3) for i in range(A+1)]
+    problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1,A+1)]
     # Apply Dirichlet conditions everywhere (indicated by the zero marker)
     on_boundary = CompiledSubDomain("on_boundary")
     on_boundary.mark(problem.momentum_boundary_markers, 0)
-    for i in range(1,A):
+    for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
@@ -156,8 +156,8 @@ def single_run(n=8, M=8, theta=1.0):
     p = (p1, p2)
     u_err_L2 = errornorm(problem.u_bar, u, "L2", degree_rise=5)
     u_err_H1 = errornorm(problem.u_bar, u, "H1", degree_rise=5)
-    p_err_L2 = [errornorm(problem.p_bar[i+1], p[i], "L2", degree_rise=5) for i in range(A-1)]
-    p_err_H1 = [errornorm(problem.p_bar[i+1], p[i], "H1", degree_rise=5) for i in range(A-1)]
+    p_err_L2 = [errornorm(problem.p_bar[i+1], p[i], "L2", degree_rise=5) for i in range(A)]
+    p_err_H1 = [errornorm(problem.p_bar[i+1], p[i], "H1", degree_rise=5) for i in range(A)]
     h = mesh.hmin()
     return (u_err_L2, u_err_H1, p_err_L2, p_err_H1, h)
     
