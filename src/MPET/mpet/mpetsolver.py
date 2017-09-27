@@ -114,11 +114,12 @@ class MPETSolver(object):
 
         # Initialize objects and store
         F, L0, L1, L2, P, up_, up = self.create_variational_forms()
-        self.P = P
+
         self.F = F
         self.L0 = L0
         self.L1 = L1
         self.L2 = L2
+        self.P = P
         self.up_ = up_
         self.up = up
 
@@ -284,14 +285,25 @@ class MPETSolver(object):
             mu = E/(2.0*((1.0 + nu)))
             lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
             F += inner(sum([-h*h*K[i]/4.0(lmbda+2*mu)*grad(p[i]-p_[i])*w[i] for i in As]) )
-            
+
+
+        P = 0
+        if self.params.direct_solver == False:
+            info("Assembling preconditioner")
+            mu = E/(2.0*((1.0 + nu)))
+            pu = mu * inner(grad(u), grad(v))*dx 
+            pp = sum([c[i]*p[i]*w[i]*dx() + dt*theta* K[i]*inner(grad(p[i]), grad(w[i]))*dx \
+                      + dt*theta*S[i][i]*p[i]*w[i]*dx for i in As])
+            P += pu + pp
+
         # Add orthogonality vefrsus rigid motions if nullspace for the
         # displacement
         debug("Assembling nullspace for u")
         if u_nullspace:
             F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
                  + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
-
+            P += sum(z[i]*r[i]*dx() for i in range(dimZ)) + inner(u,v)*dx() 
+            
         # Add orthogonality versus constants if nullspace for the
         # displacement
         if dimQ:
@@ -299,8 +311,9 @@ class MPETSolver(object):
             for (k, p_nullspace) in enumerate(self.problem.pressure_nullspace):
                 if p_nullspace:
                     F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
+                    P += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx() 
                     i += 1
-        
+                    
         # Add body force and traction boundary condition for momentum equation
         NEUMANN_MARKER = 1
         ROBIN_MARKER = 2
@@ -321,14 +334,7 @@ class MPETSolver(object):
             L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i](ROBIN_MARKER) + Constant(0.0)*p[i]*w[i]*dx()]
         # Set preconditioner form
 
-        P = 0
-        if self.params.direct_solver == False:
-            info("Assembling preconditioner")
-            mu = E/(2.0*((1.0 + nu)))
-            pu = mu * inner(grad(u), grad(v))*dx + inner(u,v)*dx 
-            pp = sum([(c[i] + 1.0)*p[i]*w[i]*dx + dt*theta* K[i]*inner(grad(p[i]), grad(w[i]))*dx \
-                      + dt*theta*S[i][i]*p[i]*w[i]*dx for i in As])
-            P += pu + pp
+
 
         up = Function(VW)
         
