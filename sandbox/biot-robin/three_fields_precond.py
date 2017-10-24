@@ -38,44 +38,24 @@ opts   = {"w_ksp_type" : "fgmres",
           "w_pc_fieldsplit_2_fields" : 2,
 
           "w_fieldsplit_0_ksp_type" : "preonly",
-          "w_fieldsplit_0_pc_type" : "cholesky",
-          "w_fieldsplit_0_pc_factor_mat_solver_package" : "mumps",
-          "w_fieldsplit_0_mat_mumps_icntl_24" : 1,
+          "w_fieldsplit_0_pc_type" : "gamg",
+          #"w_fieldsplit_0_pc_gamg_agg_nsmooths" : 3,
+          #"w_fieldsplit_0_pc_gamg_coarse_eq_limit" : 50000,
+          "w_fieldsplit_0_ksp_atol" : 1.0e-10,
+          "w_fieldsplit_0_ksp_rtol" : 1.0e-15,
+          "w_fieldsplit_0_ksp_monitor_true_residualx" : None,
+          "w_fieldsplit_0_ksp_converged_reasonx" : None,
+          "w_fieldsplit_0_ksp_max_it" : 8,
+          "w_fieldsplit_0_pc_gamg_use_parallel_coarse_grid_solver": True,
 
-          ## NOTE: comment the three lines above and uncomment those below to change from
-          ##       cholesky factorisation (direct solver) to multiplicative fieldsplit preconditioning
-          ##       you also need to uncomment lines 366-390.
-          #"w_fieldsplit_0_ksp_type" : "richardson",
-          #"w_fieldsplit_0_pc_type" : "fieldsplit",
-          #"w_fieldsplit_0_ksp_atol" : 1.0e-10,
-          #"w_fieldsplit_0_ksp_rtol" : 1.0e-15,
-          #"w_fieldsplit_0_ksp_monitor_true_residualx" : None,
-          #"w_fieldsplit_0_ksp_converged_reasonx" : None,
-          #"w_fieldsplit_0_ksp_max_it" : 5,
-
-          #"w_fieldsplit_0_pc_fieldsplit_type" : "multiplicative",
-          #"w_fieldsplit_0_pc_fieldsplit_0_fields" : 0,
-          #"w_fieldsplit_0_pc_fieldsplit_1_fields" : 1,
-          #"w_fieldsplit_0_pc_fieldsplit_2_fields" : 2,
-
-          #"w_fieldsplit_0_fieldsplit_ksp_type" : "preonly",
-          #"w_fieldsplit_0_fieldsplit_ksp_atol" : 1.0e-10,
-          #"w_fieldsplit_0_fieldsplit_ksp_rtol" : 1.0e-15,
-          #"w_fieldsplit_0_fieldsplit_ksp_monitor_true_residualx" : None,
-          #"w_fieldsplit_0_fieldsplit_ksp_converged_reasonx" : None,
-          #"w_fieldsplit_0_fieldsplit_pc_factor_mat_solver_package" : "mumps",
-          #"w_fieldsplit_0_fieldsplit_ksp_max_it" : 1,
-          #"w_fieldsplit_0_fieldsplit_pc_type" : "hypre",
-          #"w_fieldsplit_0_fieldsplit_pc_hypre_type" : "boomeramg",
-
-          "w_fieldsplit_1_ksp_type" : "preonly",
+          "w_fieldsplit_1_ksp_type" : "cg",
           "w_fieldsplit_1_ksp_atol" : 1.0e-10,
           "w_fieldsplit_1_ksp_rtol" : 1.0e-15,
           "w_fieldsplit_1_ksp_monitor_true_residualx" : None,
           "w_fieldsplit_1_ksp_converged_reasonx" : None,
           "w_fieldsplit_1_pc_factor_mat_solver_package" : "mumps",
-          "w_fieldsplit_1_ksp_max_it" : 1,
-          "w_fieldsplit_1_pc_type" : "mat",
+          "w_fieldsplit_1_ksp_max_it" : 10,
+          "w_fieldsplit_1_pc_type" : "jacobi",
           "w_fieldsplit_1_pc_hypre_type" : "boomeramg",
 
           "w_fieldsplit_2_ksp_type" : "richardson",
@@ -129,42 +109,117 @@ def extract_sub_vector(V, subspace):
 
     return dupe
 
+def rm_basis(mesh):
+    import numpy as np
+    '''6 functions(Expressions) that are the rigid motions of the body.'''
+    x = SpatialCoordinate(mesh)
+    dX = dx(domain=mesh)
+    # Center of mass
+    c = np.array([assemble(xi*dX) for xi in x])
+    volume = assemble(Constant(1)*dX)
+    c /= volume
+    c_ = c
+    c = Constant(c)
+
+    # Gram matrix of rotations around canonical axis and center of mass
+    R = np.zeros((3, 3))
+
+    ei_vectors = [Constant((1, 0, 0)), Constant((0, 1, 0)), Constant((0, 0, 1))]
+    for i, ei in enumerate(ei_vectors):
+        R[i, i] = assemble(inner(cross(x-c, ei), cross(x-c, ei))*dX)
+        for j, ej in enumerate(ei_vectors[i+1:], i+1):
+            R[i, j] = assemble(inner(cross(x-c, ei), cross(x-c, ej))*dX)
+            R[j, i] = R[i, j]
+
+    # Eigenpairs
+    eigw, eigv = np.linalg.eigh(R)      
+    if np.min(eigw) < 1E-8: warning('Small eigenvalues %g.' % np.min(eigw))
+    eigv = eigv.T
+
+    # Translations: ON basis of translation in direction of rot. axis
+    translations = [Constant(v/sqrt(volume)) for v in eigv]
+
+    # Rotations using the eigenpairs
+    # C0, C1, C2 = c.values()
+    C0, C1, C2 = c_
+
+    def rot_axis_v(pair):
+        '''cross((x-c), v)/sqrt(w) as an expression'''
+        v, w = pair
+        return Expression(('((x[1]-C1)*v2-(x[2]-C2)*v1)/A',
+                           '((x[2]-C2)*v0-(x[0]-C0)*v2)/A',
+                           '((x[0]-C0)*v1-(x[1]-C1)*v0)/A'),
+                           C0=C0, C1=C1, C2=C2, 
+                           v0=v[0], v1=v[1], v2=v[2], A=sqrt(w),
+                           degree=1)
+
+    # Roations are described as rot around v-axis centered in center of gravity 
+    rotations = map(rot_axis_v, zip(eigv, eigw))
+
+    Z = translations + rotations
+    return Z
+
+def rescale_mesh(mesh):
+    X = mesh.coordinates()
+    x = SpatialCoordinate(mesh)
+    dX = dx(domain=mesh)
+    # Center of mass
+    c = array([assemble(xi*dX) for xi in x])
+    volume = assemble(Constant(1)*dX)
+    xscale = pow(volume, 1./mesh.geometry().dim())
+    rescaled_X = (X - c/volume)/xscale
+    rescaled_mesh = Mesh(mesh)
+    rescaled_mesh.coordinates()[:] = rescaled_X
+    rescaled_mesh.bounding_box_tree().build(rescaled_mesh)
+    return rescaled_mesh, xscale
+
 ###################################################################################################################
 ### Load mesh and markers
 ###################################################################################################################
 
 ## NOTE: uncomment the next block to use the collins27 mesh. You might have to modify the path.
 #path_to_mesh_file = "../../../brain-mesh-2015/collins27/"
-#mesh = Mesh(mpi_comm_world(), path_to_mesh_file + "whitegray.xml.gz")
-#hdf = HDF5File(mesh.mpi_comm(), "collins_markers.h5", "r")
+#old_mesh = Mesh(mpi_comm_world(), path_to_mesh_file + "whitegray.xml.gz")
+#
+#mesh, xscale = rescale_mesh(old_mesh)
+#
+#hdf = HDF5File(mpi_comm_world(), "collins_markers.h5", "r")
 #markers = MeshFunction("size_t", mesh)
 #hdf.read(markers, "/markers")
 #boundaries = FacetFunction("size_t", mesh)
+#old_boundaries = FacetFunction("size_t", old_mesh)
 #hdf.read(boundaries, "/boundaries")
+#hdf.read(old_boundaries, "/boundaries")
 ## marker_number is the marker number assigned to the grey matters dofs, for the collins27 this is 3,
 ## for the spherical brain mesh this is 1.
 #marker_number = 3
 
 # NOTE: the following loads the spherical brain mesh and relative whitegrey matter markers generated in gmesh
 hdf = HDF5File(mpi_comm_world(), "mesh_and_markers.h5", "r")
-mesh = Mesh(mpi_comm_world())
-hdf.read(mesh, "/mesh", False)
-markers = MeshFunction("size_t", mesh) 
+old_mesh = Mesh(mpi_comm_world())
+hdf.read(old_mesh, "/mesh", False)
+
+mesh, xscale = rescale_mesh(old_mesh)
+
+markers = MeshFunction("size_t", mesh) #, path_to_mesh_file + "whitegray_markers.xml.gz")
 hdf.read(markers, "/markers")
 boundaries = FacetFunction("size_t", mesh)
+old_boundaries = FacetFunction("size_t", old_mesh)
 hdf.read(boundaries, "/boundaries")
+hdf.read(old_boundaries, "/boundaries")
 # marker_number is the marker number assigned to the grey matters dofs, for the collins27 this is 3,
 # for the spherical brain mesh this is 1.
 marker_number = 1
 
 ds = Measure("ds", subdomain_data = boundaries)
+dS = Measure("ds", subdomain_data = old_boundaries)
 
 ###################################################################################################################
 ### Setup parameters
 ###################################################################################################################
 
 # domain volume, needed later for output functionals and preconditioner
-vol = assemble(Constant(1.0)*dx(domain = mesh))
+vol = assemble(Constant(1.0)*dx(domain = old_mesh))
 
 # Define other material parameters. The length unit is cm.
 E = 3156. # conversion_factor(from Pa to g/mm/s^2) = 1
@@ -190,15 +245,15 @@ s0_val = (1.-n)/Ks
 ###################################################################################################################
 
 # scale factors for nondimensionalisation
-xscale = 1.0
 Kscale = xscale**2/(2.*mu)
+beta_scale = xscale/(2.*mu) # this is Kscale/xscale
 p_scale = pin_val
 u_scale = pin_val/(2.*mu)*xscale
 s_scale = alpha**2./(2.*mu)
 lmbdatilde = lmbda/(2.*mu)
 invlmbda = Constant(1.0/lmbdatilde)
 
-print "nondimentionalised input parameters, (lmbda/(2*mu)*xscale, Kwhite, beta, s0): (%f, %f, %f, %f)" % (lmbda/(2.*mu)*xscale, Kgrey_val/Kscale, beta_pia_val/Kscale, s0_val/s_scale)
+print "nondimentionalised input parameters, (lmbda/(2*mu), Kwhite, beta, s0): (%f, %f, %f, %f)" % (lmbda/(2.*mu), Kgrey_val/Kscale, beta_pia_val/beta_scale, s0_val/s_scale)
 
 ###################################################################################################################
 ### Setup characteristic function for distinguishing grey and white matter
@@ -206,6 +261,7 @@ print "nondimentionalised input parameters, (lmbda/(2*mu)*xscale, Kwhite, beta, 
 
 # characteristic function of the grey matter regions
 DG = FunctionSpace(mesh,'DG',0)
+old_DG = FunctionSpace(old_mesh,'DG',0)
 dofmap = DG.dofmap()
 grey_matter_dofs = concatenate([dofmap.cell_dofs(cell.index()) for cell in cells(mesh) if markers[cell] == marker_number])
 K = interpolate(Constant(Kwhite_val/Kscale),DG)
@@ -213,6 +269,9 @@ K_vec = K.vector()
 values = K_vec.get_local()
 values[grey_matter_dofs] = Kgrey_val/Kscale
 K_vec.set_local(values)
+
+old_K = Function(old_DG)
+old_K.vector().set_local(K.vector().array())
 
 ###################################################################################################################
 ### Setup zero forcing terms, time step and FacetNormal
@@ -225,6 +284,7 @@ f = Constant((0.0, 0.0, 0.0))
 g = Constant(0.0)
 
 normal = FacetNormal(mesh)
+old_normal = FacetNormal(old_mesh)
 
 ###################################################################################################################
 ### Setup function spaces
@@ -237,6 +297,11 @@ ME = MixedElement([Velem, Qelem, Qelem])
 W = FunctionSpace(mesh, ME)
 U = FunctionSpace(mesh, Velem)
 V = FunctionSpace(mesh, Qelem)
+
+# old mesh function
+Wold = FunctionSpace(old_mesh, ME)
+wold = Function(Wold)
+(uold, Pold, pold) = wold.split(deepcopy=True)
 
 # Initial condition for (u0, P0, p0)
 w0 = Function(W)
@@ -251,8 +316,8 @@ w0 = Function(W)
 ###################################################################################################################
 
 # membrane permeability
-beta_pia = Constant(beta_pia_val/Kscale) # units needed are g/(cm^2*s)
-beta_ventricle = Constant(beta_ventricle_val/Kscale)
+beta_pia = Constant(beta_pia_val/beta_scale) # units needed are g/(cm^2*s)
+beta_ventricle = Constant(beta_ventricle_val/beta_scale)
 # external pressure at the interfaces NOTE: 1 here is pia and 2 here is ventricles!!! 
 pin1 = Expression("pin_val/p_scale*sin(2*pi*t)",  t = float(dt), p_scale = p_scale, pin_val = pin_val, degree = 1)
 pin2 = Expression("pout_val/p_scale*sin(2*pi*t)", t = float(dt), p_scale = p_scale, pout_val = pout_val, degree = 1)
@@ -266,12 +331,8 @@ pin2 = Expression("pout_val/p_scale*sin(2*pi*t)", t = float(dt), p_scale = p_sca
 # remove 3D rigid body motions
 def build_nullspace(W, x):
     """Function to build null space for 2D elasticity"""
-    rbms = [Constant((0,0,1)),
-	    Constant((0,1,0)),
-	    Constant((1,0,0)),
-	    Expression(('-x[1]','x[0]','0.0'), degree=1),
-	    Expression(('x[2]','0.0','x[0]'),  degree=1),
-	    Expression(('0.0','-x[2]','x[1]'), degree=1)]
+
+    rbms = rm_basis(W.mesh())
 
     RBMS = [Function(W) for i in xrange(6)]
     rbms = [interpolate(rbm,U) for rbm in rbms]
@@ -321,22 +382,6 @@ pressure = Constant(alpha)*invlmbda*(P - P0)*q*dx \
 F = displacement + total_pressure + pressure
 
 ###################################################################################################################
-### Create preconditioner for the total pressure as in Lee, Mardal, Winther
-###################################################################################################################
-
-mm  = extract_sub_vector(assemble(Q*dx), 1)
-dd  = extract_sub_matrix(assemble(P*Q*dx), 1, 1)
-szs = dd.getSizes()
-dd  = dd.getDiagonal()
-dd.reciprocal()
-class TotalPressurePreconditioner(object):
-    def mult(dummyself, mat, x, y):
-        mm.axpy(x.sum()*(lmbdatilde - 1.0)/vol, x)
-        y.pointwiseMult(x, dd)
-
-Ptotal = PETSc.Mat().createPython(szs, TotalPressurePreconditioner())
-
-###################################################################################################################
 ### Assemble system and set up the Krylov solver, i.e. the PETSc KSP
 ###################################################################################################################
 
@@ -357,39 +402,6 @@ solver.setUp()
 # set null space and near-null space
 solver.pc.getFieldSplitSubKSP()[0].getOperators()[0].setNullSpace(nullsp)
 solver.pc.getFieldSplitSubKSP()[0].getOperators()[0].setNearNullSpace(nullsp)
-## the block size of the displacement field is lost by dolfin, so we reset it
-## NOTE: the following line might not work, depending on the petsc4py version
-#solver.pc.getFieldSplitSubKSP()[0].getOperators()[0].setBlockSize(3)
-
-# assign the total pressure preconditioner to the KSP
-AA = solver.pc.getFieldSplitSubKSP()[1].getOperators()[0]
-solver.pc.getFieldSplitSubKSP()[1].setOperators(AA, Ptotal)
-
-##NOTE: uncomment the following block if using an inner fieldsplit preconditioner for the displacement block
-#################################################################################################################
-## WARNING: the following is confusing, and it is only needed if we do not use cholesky/LU for the displacement,
-##          but we use an additional fieldsplit for the displacement field. Nevermind if this part is not clear.
-##
-## To set up the fieldsplit for the displacement we need to tell PETSc the position of the dofs of each
-## displacement component in the displacement matrix block. To do so, we need to first have the list of all
-## displacement dofs. These are split between processors so we need to use mpi to gather them on each worker.
-#comm = mpi_comm_world().tompi4py()
-#if comm.size == 0:
-#    # if we are only using one processor, then we have all the displacement dofs
-#    recvbuf = W.sub(0).dofmap().dofs()
-#    # the next lines obtain the same result of the above line, but they work in parallel
-#else:
-#    # compute the dofs owned by each processor, then send them along to all the other ones
-#    sendbuf = W.sub(0).dofmap().dofs()
-#    sendcounts = array(comm.allgather(len(sendbuf)))
-#    recvbuf = empty(sum(sendcounts), dtype='int32')
-#    comm.Allgatherv(sendbuf=sendbuf, recvbuf=(recvbuf, sendcounts))
-#
-## find the position of the component dofs in the displacement dofs and set the relative fieldsplit fields up
-#subdofs = [searchsorted(recvbuf,W.sub(0).sub(i).dofmap().dofs()).astype("int32") for i in xrange(3)]
-#isets0 = [PETSc.IS().createGeneral(subdofs[i]) for i in xrange(3)]
-#solver.pc.getFieldSplitSubKSP()[0].pc.setFieldSplitIS(*zip(["0", "1", "2"], isets0))
-#################################################################################################################
 
 ###################################################################################################################
 ### Main loop
@@ -421,22 +433,22 @@ for i in xrange(int(10./float(dt)) + 1):
 
     (u1, P1, p1) = w.split(deepcopy=True)
 
-    p1.vector().set_local(p1.vector().array()*p_scale) # dimensionalise and rescale to Pascals
-    u1.vector().set_local(u1.vector().array()*u_scale) # dimensionalise
+    pold.vector().set_local(p1.vector().array()*p_scale) # dimensionalise and rescale to Pascals
+    uold.vector().set_local(u1.vector().array()*u_scale) # dimensionalise
 
     # NOTE this is messy, keep track of some computed values
     print "simulation time: %f" % t
-    print "volume change, pia: %f, ventricles: %f, total: %f" % (assemble(inner(u1,normal)*ds(1)), assemble(inner(u1,normal)*ds(2)), assemble(inner(u1,normal)*ds)) # volume change
-    print "average normal displacement, (pia, ventricles): (%f, %f)" % (assemble(inner(u1,normal)*ds(1))/(2.*DOLFIN_PI*30.), assemble(inner(u1,normal)*ds(2))/(2.*DOLFIN_PI*100.)) # normal displacement
-    print "average normal flux, (pia, ventricles, total unaveraged): (%f, %f, %f)" % (assemble(inner(K*Kscale*grad(p1),normal)*ds(1))/(2.*DOLFIN_PI*30.), assemble(inner(K*Kscale*grad(p1),normal)*ds(2))/(2.*DOLFIN_PI*100.), assemble(inner(K*Kscale*grad(p1),normal)*ds)) # flux
-    print "pressure gradient norm: %f" % (assemble(inner(grad(p1), grad(p1))*dx)**.5) # pressure gradient norm
-    print "normalised displacement norm: %f" %  (assemble(inner(u1,u1)*dx)**.5/vol**.5) # normalised displacement norm
-    print "normalised pressure norm: %f" % (assemble(p1*p1*dx)**.5/vol**.5) # normalised pressure norm
-    print "max absolute displacement: %f" % (abs(u1.vector().array()).max()) # max displacement
-    print "max absolute pressure: %f" % (abs(p1.vector().array()).max()) # max pressure
+    print "volume change, pia: %f, ventricles: %f, total: %f" % (assemble(inner(uold,old_normal)*dS(1)), assemble(inner(uold,old_normal)*dS(2)), assemble(inner(uold,old_normal)*dS)) # volume change
+    print "average normal displacement, (pia, ventricles): (%f, %f)" % (assemble(inner(uold,old_normal)*dS(1))/(2.*DOLFIN_PI*30.), assemble(inner(uold,old_normal)*dS(2))/(2.*DOLFIN_PI*100.)) # normal displacement
+    print "average normal flux, (pia, ventricles, total unaveraged): (%f, %f, %f)" % (assemble(inner(old_K*Kscale*grad(pold),old_normal)*dS(1))/(2.*DOLFIN_PI*30.), assemble(inner(old_K*Kscale*grad(pold),old_normal)*dS(2))/(2.*DOLFIN_PI*100.), assemble(inner(old_K*Kscale*grad(pold),old_normal)*dS)) # flux
+    print "pressure gradient norm: %f" % (assemble(inner(grad(pold), grad(pold))*dx)**.5) # pressure gradient norm
+    print "normalised displacement norm: %f" %  (assemble(inner(uold,uold)*dx)**.5/vol**.5) # normalised displacement norm
+    print "normalised pressure norm: %f" % (assemble(pold*pold*dx)**.5/vol**.5) # normalised pressure norm
+    print "max absolute displacement: %f" % (abs(uold.vector().array()).max()) # max displacement
+    print "max absolute pressure: %f" % (abs(pold.vector().array()).max()) # max pressure
 
-    files[0] << u1 # output u is in mm
-    files[1] << p1 # output p is in Pa
+    files[0] << uold # output u is in mm
+    files[1] << pold # output p is in Pa
 
     w0.assign(w)
 
