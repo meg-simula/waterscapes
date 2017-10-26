@@ -286,8 +286,8 @@ class MPETTotalPressureSolver(object):
             
             if self.params.direct_solver == False:
                 # Since there are no bc on u I need to make the preconditioner pd adding a mass matrix
-                P += inner(u, v)*dx()
-                P += sum(z[i]*r[i]dx() for i in range(dimZ))
+                P += 1.0/volume*inner(u, v)*dx()
+                P += volume*sum(z[i]*r[i]*dx() for i in range(dimZ))
 
         # Add orthogonality versus constants if nullspace for the
         # displacement
