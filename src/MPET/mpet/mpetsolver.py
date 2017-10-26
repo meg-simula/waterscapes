@@ -106,7 +106,7 @@ class MPETSolver(object):
     def __init__(self, problem, params=None):
         "Create solver with given MPET problem and parameters."
         self.problem = problem
-
+        self.niter = None
         # Update parameters if given
         self.params = self.default_params()
         if params is not None:
@@ -418,8 +418,8 @@ class MPETSolver(object):
             #     bc.apply(A, b)
             
             # Solve
-            niter = solver.solve(self.up.vector(), b)
-            print "niter = ", niter
+            self.niter = solver.solve(self.up.vector(), b)
+            print "niter = ", self.niter
             # Yield solution and time
             yield self.up, float(time)
 
