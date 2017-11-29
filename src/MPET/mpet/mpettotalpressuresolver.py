@@ -395,7 +395,7 @@ class MPETTotalPressureSolver(object):
             # Apply boundary conditions            
             # Solve
             self.niter = solver.solve(self.up.vector(), b)
-            print "niter = ", self.niter
+
             # Yield solution and time
             yield self.up, float(time)
             # Update previous solution up_ with current solution up

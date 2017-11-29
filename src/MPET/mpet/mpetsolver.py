@@ -419,7 +419,7 @@ class MPETSolver(object):
             
             # Solve
             self.niter = solver.solve(self.up.vector(), b)
-            print "niter = ", self.niter
+
             # Yield solution and time
             yield self.up, float(time)
 
