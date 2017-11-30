@@ -273,7 +273,7 @@ class MPETTotalPressureSolver(object):
         # Define preconditioner form:
             pu = mu * inner(grad(u), grad(v))*dx()
             pp = sum(alpha[i]*alpha[i]/lmbda*p[i+1]*w[i+1]*dx() + dt*theta*K[i]*inner(grad(p[i+1]), grad(w[i+1]))*dx() \
-                    + (c[i] + dt*theta*S[i][i])*p[i+1]*w[i+1]*dx() for i in As)
+                    + (c[i] + sum([dt*theta*S[i][j] for j in (As[:i]+As[i+1:])]))*p[i+1]*w[i+1]*dx() for i in As)
             ppt = p[0]*w[0]*dx()
             P = pu + pp + ppt
             
