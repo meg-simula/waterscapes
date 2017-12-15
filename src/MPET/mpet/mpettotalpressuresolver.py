@@ -15,7 +15,7 @@ class MPETTotalPressureSolver(object):
     pressures p_a for a set of networks a = 1, ..., A such that:
 
         - div ( sigma(u) - sum_{a} alpha_a p_a I) = f           (1)
-        c_a p_a_t + alpha_a div(u_t) - div K_a grad p_a + sum_{b} S_ab (p_b - p_a) = g_a   (2)
+        c_a p_a_t + alpha_a div(u_t) - div K_a grad p_a + sum_{b} S_ab (p_a - p_b) = g_a   (2)
 
     where 
     
