@@ -9,9 +9,9 @@ from mpet.rm_basis_L2 import rigid_motions
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
-class MPETTotalPressureSolver(object):
+class MPETSumDiffSolver(object):
     """This solver solves the multiple-network poroelasticity equations
-    (MPET): find a vector field (the displacement) u and the network
+    (MPET): find a vector field (the displacement) u and the linear combinations of the network
     pressures p_a for a set of networks a = 1, ..., A such that:
 
         - div ( sigma(u) - sum_{a} alpha_a p_a I) = f           (1)
@@ -260,7 +260,13 @@ class MPETTotalPressureSolver(object):
         #FIXME
         F = inner(2*mu*sym(grad(u)), sym(grad(v)))*dx() \
             + p[0]*div(v)*dx()\
-            + (div(u) - 1./lmbda*sum([alpha[i]*p[i+1] for i in As]) -1./lmbda*p[0])*w[0]*dx()\
+            + (div(u) - 1./lmbda*alpha[0]*p[1] - 1./lmbda*p[0])*w[0]*dx()\
+            - c[i]*(p[1] -p_[1])*w[1] *dx()\
+            - alpha[0]/lmbda*A*(p[0]-p_[0] + sum([alpha[j]*(p[j+1]-p_[j+1]) for j in As]))*w[i+1] for i in As])*dx() \
+            + sum([-dt*K[i]*inner(grad(pm[i+1]), grad(w[i+1])) for i in As])*dx() \
+            + sum([sum([-dt*S[i][j]*(pm[i+1] - pm[j+1])*w[i+1] for j in As]) \
+                    for i in As])*dx() \
+            
             + sum([-c[i]*(p[i+1] -p_[i+1])*w[i+1] for i in As])*dx()\
             - sum([ alpha[i]/lmbda*(p[0]-p_[0] + sum([alpha[j]*(p[j+1]-p_[j+1]) for j in As]))*w[i+1] for i in As])*dx() \
             + sum([-dt*K[i]*inner(grad(pm[i+1]), grad(w[i+1])) for i in As])*dx() \
