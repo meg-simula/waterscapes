@@ -255,27 +255,26 @@ class MPETSumDiffSolver(object):
         lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
         mu = E/(2.0*(1.0+nu))
 
-        As = range(A)
+        As = range(1,A)
 
         #FIXME
         F = inner(2*mu*sym(grad(u)), sym(grad(v)))*dx() \
-            + p[0]*div(v)*dx()\
-            + (div(u) - 1./lmbda*alpha[0]*p[1] - 1./lmbda*p[0])*w[0]*dx()\
-            - c[0]*(p[1] -p_[1])*w[1] *dx()\
-            - alpha[0]/lmbda*A*(p[0]-p_[0] + alpha[0]*(p[1]-p_[1]))*w[1]*dx() \
-            - dt*K[0]*inner(grad(pm[1]), grad(w[1]))*dx() \
-            + sum([-c[i]*(p[i+2] -p_[i+2])*w[i+2] for i in As])*dx()\
-            + sum([-dt*K[i]*inner(grad(pm[i+2]), grad(w[i+2])) for i in As])*dx() \
-            + sum([sum([-2.0*dt*S[i][j]*pm[i+2]*w[i+2] for j in As]) \
-                    for i in As])*dx() \
+          + p[0]*div(v)*dx()\
+          + (div(u) - 1./lmbda*alpha[0]*p[1] - 1./lmbda*p[0])*w[0]*dx()\
+          - c[0]/A*(p[1] -p_[1])*w[1] *dx()\
+          - alpha[0]/lmbda*(p[0]-p_[0] + alpha[0]*(p[1]-p_[1]))*w[1]*dx() \
+          - dt*K[0]/A*inner(grad(pm[1]), grad(w[1]))*dx() \
+          + sum([-dt*K[i]*inner(grad(pm[i+1]), grad(w[i+1])) for i in As])*dx() \
+          + sum([-A*dt*S[0][i]*pm[i+1]*w[i+1] for i in As])*dx()
 
         P = 0
         if self.params.direct_solver == False:
 
         # Define preconditioner form:
             pu = mu * inner(grad(u), grad(v))*dx()
-            pp = sum(alpha[i]*alpha[i]/lmbda*p[i+1]*w[i+1]*dx() + dt*theta*K[i]*inner(grad(p[i+1]), grad(w[i+1]))*dx() \
-                    + (c[i] + sum([dt*theta*S[i][j] for j in (As[:i]+As[i+1:])]))*p[i+1]*w[i+1]*dx() for i in As)
+            pp = (c[0]/A + alpha[0]*alpha[0]/lmbda)*p[1]*w[1]*dx() + dt*theta*K[0]/A*inner(grad(p[1]), grad(w[1]))*dx() \
+               + sum([-dt*K[i]*inner(grad(p[i+1]), grad(w[i+1])) for i in As])*dx() \
+               + sum([-A*dt*S[0][i]*p[i+1]*w[i+1] for i in As])*dx()
             ppt = p[0]*w[0]*dx()
             P = pu + pp + ppt
             
