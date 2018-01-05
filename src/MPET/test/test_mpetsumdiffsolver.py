@@ -89,13 +89,13 @@ def exact_solutions(params):
     # Compute g
     g = [0 for i in range(A)]
     g[0] = - c[0]/A*diff(p[1], t) \
-           - alpha[0]/lmbda *diff((p[0] + p[1]), t) \
+           - alpha[0]/lmbda *diff((p[0] + alpha[0]*p[1]), t) \
            + sum([diff(K[0]/A*grad_p[1][j], x[j]) for j in range(d)])
 
     for i in range(1,A):
         g[i] = - c[i]*diff(p[i+1], t) \
                + sum([diff(K[i]*grad_p[i+1][j], x[j]) for j in range(d)]) \
-               - S[0][i]*p[i+1]
+               - S[0][i]*A*p[i+1]
 
     g = [sympy.simplify(gi) for gi in g]
 
