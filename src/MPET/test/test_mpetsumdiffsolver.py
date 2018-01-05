@@ -89,7 +89,7 @@ def exact_solutions(params):
     # Compute g
     g = [0 for i in range(A)]
     g[0] = - c[0]/A*diff(p[1], t) \
-           - alpha[0]/lmbda *diff((p[0] + alpha[0]*p[1]), t) \
+           - alpha[0]/lmbda *diff((p[0] + alpha[0]p[1]), t) \
            + sum([diff(K[0]/A*grad_p[1][j], x[j]) for j in range(d)])
 
     for i in range(1,A):
@@ -232,7 +232,7 @@ def convergence_exp(theta):
     assert (p1_ratesH1[-1] > 0.95), "H1 convergence in p1 failed"
 
 def test_convergence():
-    # convergence_exp(0.5)
+    convergence_exp(0.5)
     convergence_exp(1.0)
 
 if __name__ == "__main__":
