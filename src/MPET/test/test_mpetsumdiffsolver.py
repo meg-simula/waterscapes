@@ -27,7 +27,7 @@ def exact_solutions(params):
     K = params["K"]
     S = params["S"]
     
-    # Convert (nu, E) to (mu, labda)
+    # Convert (nu, E) to (mu, lambda)
     lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
     mu = E/(2.0*(1.0+nu))
     
@@ -48,17 +48,15 @@ def exact_solutions(params):
     for i in range(A):
         pf += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
 
-    p = [0]
+    p = [0, 0]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
     p[0] = lmbda*div_u - sum([alpha[i]*pf[i] for i in range(A)])
-    p += [sum(pf[i] for i in range(A))]
+    p[1] = sum(pf[i] for i in range(A))
 
-    for i in range(1,A):
-        p += [pf[0] - pf[i]]
-
-    print p
+    for i in range(2,A+1):
+        p += [pf[0] - pf[i-1]]
 
     # Simplify symbolics 
     u = [sympy.simplify(u[i]) for i in range(d)]
@@ -89,7 +87,7 @@ def exact_solutions(params):
     # Compute g
     g = [0 for i in range(A)]
     g[0] = - c[0]/A*diff(p[1], t) \
-           - alpha[0]/lmbda *diff((p[0] + alpha[0]p[1]), t) \
+           - alpha[0]/lmbda *diff((p[0] + alpha[0]*p[1]), t) \
            + sum([diff(K[0]/A*grad_p[1][j], x[j]) for j in range(d)])
 
     for i in range(1,A):
@@ -232,7 +230,7 @@ def convergence_exp(theta):
     assert (p1_ratesH1[-1] > 0.95), "H1 convergence in p1 failed"
 
 def test_convergence():
-    convergence_exp(0.5)
+    # convergence_exp(0.5)
     convergence_exp(1.0)
 
 if __name__ == "__main__":
