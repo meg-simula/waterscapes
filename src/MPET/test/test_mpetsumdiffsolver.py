@@ -44,14 +44,20 @@ def exact_solutions(params):
     u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0),
          sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
 
-    p = []
-    p += [0]
-    for i in range(1, A+1):
-        p += [-(i)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+    pf = []
+    for i in range(A):
+        pf += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+
+    p = [0]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
-    p[0] = lmbda*div_u - sum([alpha[i]*p[i+1] for i in range(A)])
+    p[0] = lmbda*div_u - sum([alpha[i]*pf[i] for i in range(A)])
+    p += [sum(pf[i] for i in range(A))]
+
+    for i in range(1,A):
+        p += [pf[0] - pf[i]]
+
 
     # Simplify symbolics 
     u = [sympy.simplify(u[i]) for i in range(d)]
@@ -81,11 +87,14 @@ def exact_solutions(params):
 
     # Compute g
     g = [0 for i in range(A)]
-    for i in range(A):
+    g[0] = - c[0]/A*diff(p[1], t) \
+           - alpha[0]/lmbda *diff((p[0] + p[1]), t) \
+           + sum([diff(K[0]/A*grad_p[1][j], x[j]) for j in range(d)])
+
+    for i in range(1,A):
         g[i] = - c[i]*diff(p[i+1], t) \
-               - alpha[i]/lmbda *diff((p[0] + sum([alpha[j]*p[j+1] for j in range(A)])), t) \
                + sum([diff(K[i]*grad_p[i+1][j], x[j]) for j in range(d)]) \
-               - sum(S[i][j]*(p[i+1] - p[j+1]) for j in range(A))
+               - S[0][i]*p[i+1]
 
     g = [sympy.simplify(gi) for gi in g]
 
@@ -135,8 +144,8 @@ def single_run(n=8, M=8, theta=1.0):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
-    params = dict(dt=dt, theta=theta, T=T, direct_solver=False)
-    solver = MPETTotalPressureSolver(problem, params)
+    params = dict(dt=dt, theta=theta, T=T, direct_solver=True)
+    solver = MPETSumDiffSolver(problem, params)
 
     # Set initial conditions
     # Initial conditions are needed for the total pressure too
@@ -222,7 +231,7 @@ def convergence_exp(theta):
     assert (p1_ratesH1[-1] > 0.95), "H1 convergence in p1 failed"
 
 def test_convergence():
-    convergence_exp(0.5)
+    # convergence_exp(0.5)
     convergence_exp(1.0)
 
 if __name__ == "__main__":
