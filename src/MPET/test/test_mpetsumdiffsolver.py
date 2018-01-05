@@ -58,6 +58,7 @@ def exact_solutions(params):
     for i in range(1,A):
         p += [pf[0] - pf[i]]
 
+    print p
 
     # Simplify symbolics 
     u = [sympy.simplify(u[i]) for i in range(d)]
