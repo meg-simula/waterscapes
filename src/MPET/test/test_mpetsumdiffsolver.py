@@ -41,19 +41,31 @@ def exact_solutions(params):
     t = sympy.symbols("t")
 
     # Define exact solutions u and p
-    u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0),
-         sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+    # u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0),
+    #      sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+
+    # pf = []
+    # for i in range(A):
+    #     pf += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+
+##########################################################################
+    # linear in space:
+    u = [x[0],
+         x[1]]
+
 
     pf = []
     for i in range(A):
-        pf += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+        pf += [-(i+1)*x[0]]
+
+##########################################################################
 
     p = [0, 0]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
-    p[0] = lmbda*div_u - sum([alpha[i]*pf[i] for i in range(A)])
     p[1] = sum(pf[i] for i in range(A))
+    p[0] = lmbda*div_u - alpha[0]*p[1]
 
     for i in range(2,A+1):
         p += [pf[0] - pf[i-1]]
@@ -90,10 +102,9 @@ def exact_solutions(params):
            - alpha[0]/lmbda *diff((p[0] + alpha[0]*p[1]), t) \
            + sum([diff(K[0]/A*grad_p[1][j], x[j]) for j in range(d)])
 
-    for i in range(1,A):
-        g[i] = - c[i]*diff(p[i+1], t) \
-               + sum([diff(K[i]*grad_p[i+1][j], x[j]) for j in range(d)]) \
-               - S[0][i]*A*p[i+1]
+    g[1] = - c[1]*diff(p[2], t) \
+           + sum([diff(K[1]*grad_p[2][j], x[j]) for j in range(d)]) \
+           - S[0][1]*A*p[2]
 
     g = [sympy.simplify(gi) for gi in g]
 
@@ -201,6 +212,10 @@ def convergence_exp(theta):
             p_errorsL2[i] += [errpi]
         for (i, errpi) in enumerate(errpH1):
             p_errorsH1[i] += [errpi]
+
+    print "u_errorsH1 =", u_errorsH1
+    print "p1_errorsH1 =", p_errorsH1[1]
+    print "p2_errorsH1 =", u_errorsH1[2]
 
     # Compute convergence rates:
     u_ratesL2 = convergence_rates(u_errorsL2, hs)
