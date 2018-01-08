@@ -9,6 +9,8 @@ parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
+notpipelines = pytest.mark.notpipelines
+
 def convergence_rates(errors, hs):
     import math
     rates = [(math.log(errors[i+1]/errors[i]))/(math.log(hs[i+1]/hs[i]))
@@ -27,7 +29,7 @@ def exact_solutions(params):
     K = params["K"]
     S = params["S"]
     
-    # Convert (nu, E) to (mu, lambda)
+    # Convert (nu, E) to (mu, labda)
     lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
     mu = E/(2.0*(1.0+nu))
     
@@ -48,27 +50,37 @@ def exact_solutions(params):
     # for i in range(A):
     #     pf += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
 
-##########################################################################
-    # linear in space:
-    u = [x[0],
-         x[1]]
+    #no time in exact solution:
+    # u = [sin(2*pi*x[0])*sin(2*pi*x[1]),
+    #      sin(2*pi*x[0])*sin(2*pi*x[1])]
+
+    # pf = []
+    # for i in range(A):
+    #     pf += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])]
+
+###################################################################
+    #linear in space
+    u = [x[0]*x[0],
+         x[1]*x[0]]
 
 
     pf = []
     for i in range(A):
-        pf += [-(i+1)*x[0]]
+        pf += [-(i+1)*x[1]]
 
-##########################################################################
+###################################################################
 
-    p = [0, 0]
+
+
+
+    p = [0]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
-    p[1] = sum(pf[i] for i in range(A))
-    p[0] = lmbda*div_u - alpha[0]*p[1]
-
-    for i in range(2,A+1):
-        p += [pf[0] - pf[i-1]]
+    p[0] = lmbda*div_u - sum([alpha[i]*pf[i] for i in range(A)])
+    p += [sum(pf[i] for i in range(A))]
+    for i in range(1,A):
+        p += [pf[0] - pf[i]]
 
     # Simplify symbolics 
     u = [sympy.simplify(u[i]) for i in range(d)]
@@ -114,6 +126,8 @@ def exact_solutions(params):
     f_str = [sympy.printing.ccode(f[i]) for i in range(d)]
     g_str = [sympy.printing.ccode(g[i]) for i in range(A)]
     
+    print f_str
+    print g_str
     return (u_str, p_str, f_str, g_str)
     
 def single_run(n=8, M=8, theta=1.0):
@@ -245,7 +259,7 @@ def convergence_exp(theta):
     assert (p1_ratesH1[-1] > 0.95), "H1 convergence in p1 failed"
 
 def test_convergence():
-    # convergence_exp(0.5)
+    convergence_exp(0.5)
     convergence_exp(1.0)
 
 if __name__ == "__main__":
