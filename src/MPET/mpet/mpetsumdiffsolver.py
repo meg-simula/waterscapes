@@ -263,10 +263,10 @@ class MPETSumDiffSolver(object):
           + (div(u) - 1./lmbda*alpha[0]*p[1] - 1./lmbda*p[0])*w[0]*dx()\
           - c[0]/A*(p[1] -p_[1])*w[1] *dx()\
           - alpha[0]/lmbda*((p[0]-p_[0]) + alpha[0]*(p[1]-p_[1]))*w[1]*dx() \
-          - dt*theta*K[0]/A*inner(grad(pm[1]), grad(w[1]))*dx() \
+          - dt*K[0]/A*inner(grad(pm[1]), grad(w[1]))*dx() \
           + sum([-c[i]*(p[i+1] -p_[i+1])*w[i+1] for i in As1])*dx()\
-          + sum([-dt*theta*K[i]*inner(grad(pm[i+1]), grad(w[i+1])) for i in As1])*dx() \
-          + sum([-dt*A*theta*S[0][i]*pm[i+1]*w[i+1] for i in As1])*dx()
+          + sum([-dt*K[i]*inner(grad(pm[i+1]), grad(w[i+1])) for i in As1])*dx() \
+          + sum([-dt*A*S[0][i]*pm[i+1]*w[i+1] for i in As1])*dx()
 
         P = 0
         if self.params.direct_solver == False:
