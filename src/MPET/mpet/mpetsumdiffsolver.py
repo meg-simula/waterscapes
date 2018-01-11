@@ -345,7 +345,6 @@ class MPETSumDiffSolver(object):
         # Extract essential bcs
         [bcs0, bcs1] = self.create_dirichlet_bcs()
         bcs = bcs0 + bcs1
-        print " bcs = ", bcs
         
         # Assemble left-hand side matrix
                 
