@@ -43,12 +43,12 @@ def exact_solutions(params):
     t = sympy.symbols("t")
 
     # Define exact solutions u and p
-    # u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0),
-    #      sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+    u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0),
+         sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
 
-    # pf = []
-    # for i in range(A):
-    #     pf += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+    pf = []
+    for i in range(A):
+        pf += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
 
     #no time in exact solution:
     # u = [sin(2*pi*x[0])*sin(2*pi*x[1]),
@@ -60,11 +60,11 @@ def exact_solutions(params):
 
 ###################################################################
     #linear in space
-    u = [1.0,1.0]
+    # u = [1.0,1.0]
 
-    pf = []
-    for i in range(A):
-        pf += [1.0,1.0]
+    # pf = []
+    # for i in range(A):
+    #     pf += [1.0,1.0]
 
 ###################################################################
 
@@ -122,8 +122,6 @@ def exact_solutions(params):
     f_str = [sympy.printing.ccode(f[i]) for i in range(d)]
     g_str = [sympy.printing.ccode(g[i]) for i in range(A)]
     
-    print "f = ", f_str
-    print "g = ", g_str
     return (u_str, p_str, f_str, g_str)
     
 def single_run(n=8, M=8, theta=1.0):
