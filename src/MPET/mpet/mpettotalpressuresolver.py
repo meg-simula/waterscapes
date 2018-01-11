@@ -370,12 +370,10 @@ class MPETTotalPressureSolver(object):
             # Handle the different parts of the rhs a bit differently
             # due to theta-scheme
             _, b = assemble_system(a, L, bcs)  
-
             # Set t_theta to t + dt (when theta = 1.0) or t + 1/2 dt
             # (when theta = 0.5)
             t_theta = float(time) + theta*float(dt)
             time.assign(t_theta)                
-
             # Assemble time-dependent rhs for parabolic equations
             for L1i in L1: 
                 _, b1 = assemble_system(a, L1i, bcs)  

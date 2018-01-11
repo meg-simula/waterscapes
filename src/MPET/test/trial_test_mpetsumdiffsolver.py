@@ -60,25 +60,21 @@ def exact_solutions(params):
 
 ###################################################################
     #linear in space
-    u = [x[0]*x[0],
-         x[1]*x[0]]
-
+    u = [1.0,1.0]
 
     pf = []
     for i in range(A):
-        pf += [-(i+1)*x[1]]
+        pf += [1.0,1.0]
 
 ###################################################################
 
-
-
-
-    p = [0]
+    p = [0,0]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
-    p[0] = lmbda*div_u - sum([alpha[i]*pf[i] for i in range(A)])
-    p += [sum(pf[i] for i in range(A))]
+    p[1] = sum(pf[i] for i in range(A))
+    p[0] = lmbda*div_u - alpha[0]*p[1]
+
     for i in range(1,A):
         p += [pf[0] - pf[i]]
 
@@ -126,8 +122,8 @@ def exact_solutions(params):
     f_str = [sympy.printing.ccode(f[i]) for i in range(d)]
     g_str = [sympy.printing.ccode(g[i]) for i in range(A)]
     
-    print f_str
-    print g_str
+    print "f = ", f_str
+    print "g = ", g_str
     return (u_str, p_str, f_str, g_str)
     
 def single_run(n=8, M=8, theta=1.0):
@@ -136,6 +132,7 @@ def single_run(n=8, M=8, theta=1.0):
     
     # Define end time T and timestep dt
     T = 1.0
+    # dt = 0.1
     dt = float(T/M)
 
     # Define material parameters in MPET equations
@@ -160,13 +157,26 @@ def single_run(n=8, M=8, theta=1.0):
     problem.u_bar = Expression(u_e, t=time, degree=3)
 
     p_ex = [Expression(p_e[i], t=time, degree=3) for i in range(A+1)]
+
     problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1,A+1)]
     # Apply Dirichlet conditions everywhere (indicated by the zero marker)
+    # plot(problem.u_bar, mesh=mesh, title="u_bar")
+    # plot(problem.p_bar[0], mesh=mesh, title="p1_bar")
+    # plot(problem.p_bar[1], mesh=mesh, title="p2_bar")
+
+    interactive()
+
     on_boundary = CompiledSubDomain("on_boundary")
     on_boundary.mark(problem.momentum_boundary_markers, 0)
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
-
+    
+    # plot(on_boundary, title="on_boundary")
+    #plot(problem.momentum_boundary_markers, title="on_boundary_mom")
+    #plot(problem.continuity_boundary_markers[0], title="on_boundary_cont1")
+    #plot(problem.continuity_boundary_markers[1], title="on_boundary_cont2")
+    #interactive()
+    print len(problem.continuity_boundary_markers)
     # Set-up solver
     params = dict(dt=dt, theta=theta, T=T, direct_solver=True)
     solver = MPETSumDiffSolver(problem, params)
@@ -179,14 +189,27 @@ def single_run(n=8, M=8, theta=1.0):
     for i in range(A+1):
         Q = VP.sub(i+1).collapse()
         assign(solver.up_.sub(i+1), interpolate(p_ex[i], Q))
+
+    # plot(solver.up_.sub(0), mesh=mesh, title="u_init")
+    # plot(solver.up_.sub(1), mesh=mesh, title="p0_init")
+    # plot(solver.up_.sub(2), mesh=mesh, title="p1_init")
+    # plot(solver.up_.sub(3), mesh=mesh, title="p2_init")
+
+    interactive()
     
     # Solve
     solutions = solver.solve()
     for (up, t) in solutions:
-        info("t = %g" % t)
+		(u, p0, p1, p2) = up.split()
+		# plot(u, mesh=mesh, title="u")
+		# plot(p1, mesh=mesh, title="p1")
+		# plot(p2, mesh=mesh, title="p2")
+		# interactive()
+		info("t = %g" % t)
 
     (u, p0, p1, p2) = up.split()
     p = (p1, p2)
+
     u_err_L2 = errornorm(problem.u_bar, u, "L2", degree_rise=5)
     u_err_H1 = errornorm(problem.u_bar, u, "H1", degree_rise=5)
     p_err_L2 = [errornorm(problem.p_bar[i], p[i], "L2", degree_rise=5) for i in range(A)]
@@ -228,8 +251,8 @@ def convergence_exp(theta):
             p_errorsH1[i] += [errpi]
 
     print "u_errorsH1 =", u_errorsH1
-    print "p1_errorsH1 =", p_errorsH1[1]
-    print "p2_errorsH1 =", u_errorsH1[2]
+    print "p1_errorsH1 =", p_errorsH1[0]
+    print "p2_errorsH1 =", p_errorsH1[1]
 
     # Compute convergence rates:
     u_ratesL2 = convergence_rates(u_errorsL2, hs)
@@ -264,4 +287,5 @@ def test_convergence():
 
 if __name__ == "__main__":
 
+    # single_run()
     test_convergence()

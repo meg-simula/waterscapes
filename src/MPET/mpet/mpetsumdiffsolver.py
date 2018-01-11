@@ -125,6 +125,7 @@ class MPETSumDiffSolver(object):
         bcs0 = []
         markers = self.problem.momentum_boundary_markers
         u_bar = self.problem.u_bar
+
         bcs0 += [DirichletBC(VP.sub(0), u_bar, markers, 0)]
 
         # Boundary conditions for continuity equation
@@ -314,11 +315,11 @@ class MPETSumDiffSolver(object):
         L1 = []
         L2 = []
         for i in As:
-            markers = self.problem.continuity_boundary_markers[i-1]
+            markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
-            L1 += [dt*g[i]*w[i+1]*dx() + dt*I[i]*w[i+1]*dsc[i](NEUMANN_MARKER)]
-
-            L2 += [dt*beta[i]*(-pm[i+1]+p_robin[i])*w[i+1]*dsc[i](ROBIN_MARKER) +  Constant(0.0)*p[i+1]*w[i+1]*dx()]
+            # L1 += [dt*g[i]*w[i+1]*dx() + dt*I[i]*w[i+1]*dsc[i](NEUMANN_MARKER)]
+            L1 += [dt*Constant(0.0)*w[i+1]*dx() + dt*Constant(0.0)*w[i+1]*dsc[i](NEUMANN_MARKER)]
+            # L2 += [dt*beta[i]*(-pm[i+1]+p_robin[i])*w[i+1]*dsc[i](ROBIN_MARKER) +  Constant(0.0)*p[i+1]*w[i+1]*dx()]
         # Set solution field(s)
         up = Function(VW)
         
@@ -345,14 +346,19 @@ class MPETSumDiffSolver(object):
         # Extract essential bcs
         [bcs0, bcs1] = self.create_dirichlet_bcs()
         bcs = bcs0 + bcs1
+        print " bcs = ", bcs
         
         # Assemble left-hand side matrix
                 
         A, _ = assemble_system(a, L, bcs)  
 
-        for L2i in L2: 
-            A2, _ = assemble_system(lhs(L2i), L, bcs)  
-            A.axpy(1.0, A2, False)
+        # A = assemble(a)  
+        # b = assemble(L)  
+        # [bc.apply(A,b) for bc in bcs]
+
+        # for L2i in L2: 
+        #    A2, _ = assemble_system(lhs(L2i), L, bcs)  
+        #    A.axpy(1.0, A2, False)
         
         # Create solver
         if self.params.direct_solver == True:
@@ -372,28 +378,32 @@ class MPETSumDiffSolver(object):
             # Handle the different parts of the rhs a bit differently
             # due to theta-scheme
             _, b = assemble_system(a, L, bcs)  
+            from IPython import embed; embed()
+            # b = assemble(L)  
+            # [bc.apply(A,b) for bc in bcs]
 
             # Set t_theta to t + dt (when theta = 1.0) or t + 1/2 dt
             # (when theta = 0.5)
             t_theta = float(time) + theta*float(dt)
             time.assign(t_theta)                
-
             # Assemble time-dependent rhs for parabolic equations
-            for L1i in L1: 
-                _, b1 = assemble_system(a, L1i, bcs)  
-                b.axpy(1.0, b1)
-            
-            for L2i in L2: 
-                _, b2 = assemble_system(a, rhs(L2i), bcs)
-                b.axpy(1.0, b2)    
+            for L1i in L1:
+               _, b1 = assemble_system(a, L1i, bcs)  
+               from IPython import embed; embed()
+               print b1.vector()[:]
+               print b.vector()[:]
+               b.axpy(1.0, b1)
+               print b.vector()[:]
+            # for L2i in L2: 
+            #    _, b2 = assemble_system(a, rhs(L2i), bcs)
+            #    b.axpy(1.0, b2)    
             # Set t to "t"
             t = float(time) + (1.0 - theta)*float(dt)
             time.assign(t)
             
             # Assemble time-dependent rhs for elliptic equations
-            _, b0 = assemble_system(a, L0, bcs)
-            b.axpy(1.0, b0)
-
+            # _, b0 = assemble_system(a, L0, bcs)
+            # b.axpy(1.0, b0)
             # Apply boundary conditions            
             # Solve
             self.niter = solver.solve(self.up.vector(), b)
