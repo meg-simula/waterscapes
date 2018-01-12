@@ -182,7 +182,7 @@ def single_run(n=8, M=8, theta=1.0):
     for (up, t) in solutions:
 	(u, p0, p1, p2) = up.split()
 	info("t = %g" % t)
-
+        
     (u, p0, p1, p2) = up.split()
     p = (p1, p2)
 
