@@ -7,10 +7,10 @@ To import the module, type::
 
 """
 
-from mpetproblem import *
-from mpetsolver import *
-from mpettotalpressuresolver import *
-from mpetsumdiffsolver import *
-from error import *
+from mpet.mpetproblem import *
+from mpet.mpetsolver import *
+from mpet.mpettotalpressuresolver import *
+from mpet.mpetsumdiffsolver import *
+from mpet.error import *
 
-from rm_basis_L2 import rigid_motions
+from mpet.rm_basis_L2 import rigid_motions
