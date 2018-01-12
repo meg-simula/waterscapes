@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 __author__ = "Eleonora Piersanti (eleonora@simula.no), 2016-2017"
 __all__ = []
 
@@ -170,7 +172,7 @@ def convergence_exp(theta):
         ms = [4, 16, 64]
 
     for (n, m) in zip([8, 16, 32], ms):
-        print "(n, m) = ", (n, m)
+        print("(n, m) = ", (n, m))
         (erruL2, erruH1, errpL2, errpH1, h) = single_run(n, m, theta)
         hs += [h]
         u_errorsL2 += [erruL2]
@@ -188,15 +190,15 @@ def convergence_exp(theta):
     p0_ratesH1 = convergence_rates(p_errorsH1[0], hs)
     p1_ratesH1 = convergence_rates(p_errorsH1[1], hs)
 
-    print "u_ratesL2 = ", u_ratesL2
-    print "u_ratesH1 = ", u_ratesH1
-    print "p0_ratesL2 = ", p0_ratesL2
-    print "p1_ratesL2 = ", p1_ratesL2
-    print "p0_ratesH1 = ", p0_ratesH1
-    print "p1_ratesH1 = ", p1_ratesH1
+    print("u_ratesL2 = ", u_ratesL2)
+    print("u_ratesH1 = ", u_ratesH1)
+    print("p0_ratesL2 = ", p0_ratesL2)
+    print("p1_ratesL2 = ", p1_ratesL2)
+    print("p0_ratesH1 = ", p0_ratesH1)
+    print("p1_ratesH1 = ", p1_ratesH1)
 
     end = time.time()
-    print "Time_elapsed = ", end - start
+    print("Time_elapsed = ", end - start)
 
     # Test that convergence rates are in agreement with theoretical
     # expectation asymptotically
