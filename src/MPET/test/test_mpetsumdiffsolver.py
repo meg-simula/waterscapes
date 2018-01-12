@@ -197,7 +197,7 @@ def convergence_exp(theta):
     import time
     
     # Remove all output from FEniCS (except errors)
-    set_log_level(ERROR)
+    set_log_level(LogLevel.ERROR)
 
     # Make containers for errors
     u_errorsL2 = []

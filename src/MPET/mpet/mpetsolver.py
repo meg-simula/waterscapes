@@ -72,7 +72,8 @@ class MPETSolver(object):
       K grad p_a(., t) * n = I_a(t)
 
     Robin  (dO_c_a_R)
-     ...
+       
+      DESCRIPTION MISSING
 
     Assume that for each a, a FacetFunction indicates the different
     boundaries, and that only the Neumann boundary dO_c_a_N is marked
@@ -86,6 +87,8 @@ class MPETSolver(object):
 
     Variational formulation (using Einstein summation notation over a
     in the elliptic equation below):
+
+       S MISSING IN FORMULATION BELOW
 
     Find u(t) and p_a(t) such that
 
