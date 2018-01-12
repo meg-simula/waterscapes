@@ -128,8 +128,10 @@ def single_run(n=8, M=8, theta=1.0):
     problem.g = [Expression(g[i], t=time, degree=3) for i in range(A)]
     problem.u_bar = Expression(u_e, t=time, degree=3)
 
+    problem.u_nullspace=False
     p_ex = [Expression(p_e[i], t=time, degree=3) for i in range(A+1)]
     problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1,A+1)]
+
     # Apply Dirichlet conditions everywhere (indicated by the zero marker)
     on_boundary = CompiledSubDomain("on_boundary")
     on_boundary.mark(problem.momentum_boundary_markers, 0)
