@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 __author__ = "Eleonora Piersanti (eleonora@simula.no) and Marie E. Rognes (meg@simula.no), 2017"
 
 import math
@@ -8,8 +10,6 @@ from mpet import *
 parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
-
-notpipelines = pytest.mark.notpipelines
 
 def constant_on_the_donut(n=8, M=8, theta=1.0):
 
@@ -63,7 +63,7 @@ def constant_on_the_donut(n=8, M=8, theta=1.0):
         info("t = %g" % t)
 
     (u, p, r) = up.split(deepcopy=True)
-    print norm(u, "L2")
+    print(norm(u, "L2"))
     volume = math.sqrt(assemble(1*dx(domain=mesh)))
     p_x = p((0.0, 50.0))
     assert(abs(p_x + 0.2) < 1.e-8), "Point value of p not matching reference"
@@ -121,6 +121,7 @@ def constant_on_the_donut_nullspaces(n=8, M=8, theta=1.0):
     for (up, t) in solutions:
         info("t = %g" % t)
 
+notpipelines = pytest.mark.notpipelines
 @notpipelines
 def test_donut():
     constant_on_the_donut()

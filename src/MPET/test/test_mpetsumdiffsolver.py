@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 __author__ = "Eleonora Piersanti (eleonora@simula.no), 2016-2017"
 __all__ = []
 
@@ -8,8 +10,6 @@ from mpet import *
 parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
-
-notpipelines = pytest.mark.notpipelines
 
 def convergence_rates(errors, hs):
     import math
@@ -157,24 +157,13 @@ def single_run(n=8, M=8, theta=1.0):
     p_ex = [Expression(p_e[i], t=time, degree=3) for i in range(A+1)]
 
     problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1,A+1)]
+
     # Apply Dirichlet conditions everywhere (indicated by the zero marker)
-    # plot(problem.u_bar, mesh=mesh, title="u_bar")
-    # plot(problem.p_bar[0], mesh=mesh, title="p1_bar")
-    # plot(problem.p_bar[1], mesh=mesh, title="p2_bar")
-
-    interactive()
-
     on_boundary = CompiledSubDomain("on_boundary")
     on_boundary.mark(problem.momentum_boundary_markers, 0)
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
     
-    # plot(on_boundary, title="on_boundary")
-    #plot(problem.momentum_boundary_markers, title="on_boundary_mom")
-    #plot(problem.continuity_boundary_markers[0], title="on_boundary_cont1")
-    #plot(problem.continuity_boundary_markers[1], title="on_boundary_cont2")
-    #interactive()
-    print len(problem.continuity_boundary_markers)
     # Set-up solver
     params = dict(dt=dt, theta=theta, T=T, direct_solver=True)
     solver = MPETSumDiffSolver(problem, params)
@@ -188,22 +177,11 @@ def single_run(n=8, M=8, theta=1.0):
         Q = VP.sub(i+1).collapse()
         assign(solver.up_.sub(i+1), interpolate(p_ex[i], Q))
 
-    # plot(solver.up_.sub(0), mesh=mesh, title="u_init")
-    # plot(solver.up_.sub(1), mesh=mesh, title="p0_init")
-    # plot(solver.up_.sub(2), mesh=mesh, title="p1_init")
-    # plot(solver.up_.sub(3), mesh=mesh, title="p2_init")
-
-    interactive()
-    
     # Solve
     solutions = solver.solve()
     for (up, t) in solutions:
-		(u, p0, p1, p2) = up.split()
-		# plot(u, mesh=mesh, title="u")
-		# plot(p1, mesh=mesh, title="p1")
-		# plot(p2, mesh=mesh, title="p2")
-		# interactive()
-		info("t = %g" % t)
+	(u, p0, p1, p2) = up.split()
+	info("t = %g" % t)
 
     (u, p0, p1, p2) = up.split()
     p = (p1, p2)
@@ -238,7 +216,7 @@ def convergence_exp(theta):
         ms = [8, 8*4, 8*4**2]
 
     for (n, m) in zip(ns, ms):
-        print "(n, m) = ", (n, m)
+        print("(n, m) = ", (n, m))
         (erruL2, erruH1, errpL2, errpH1, h) = single_run(n, m, theta)
         hs += [h]
         u_errorsL2 += [erruL2]
@@ -248,9 +226,9 @@ def convergence_exp(theta):
         for (i, errpi) in enumerate(errpH1):
             p_errorsH1[i] += [errpi]
 
-    print "u_errorsH1 =", u_errorsH1
-    print "p1_errorsH1 =", p_errorsH1[0]
-    print "p2_errorsH1 =", p_errorsH1[1]
+    print("u_errorsH1 =", u_errorsH1)
+    print("p1_errorsH1 =", p_errorsH1[0])
+    print("p2_errorsH1 =", p_errorsH1[1])
 
     # Compute convergence rates:
     u_ratesL2 = convergence_rates(u_errorsL2, hs)
@@ -260,15 +238,15 @@ def convergence_exp(theta):
     p0_ratesH1 = convergence_rates(p_errorsH1[0], hs)
     p1_ratesH1 = convergence_rates(p_errorsH1[1], hs)
 
-    print "u_ratesL2 = ", u_ratesL2
-    print "u_ratesH1 = ", u_ratesH1
-    print "p0_ratesL2 = ", p0_ratesL2
-    print "p1_ratesL2 = ", p1_ratesL2
-    print "p0_ratesH1 = ", p0_ratesH1
-    print "p1_ratesH1 = ", p1_ratesH1
+    print("u_ratesL2 = ", u_ratesL2)
+    print("u_ratesH1 = ", u_ratesH1)
+    print("p0_ratesL2 = ", p0_ratesL2)
+    print("p1_ratesL2 = ", p1_ratesL2)
+    print("p0_ratesH1 = ", p0_ratesH1)
+    print("p1_ratesH1 = ", p1_ratesH1)
 
     end = time.time()
-    print "Time_elapsed = ", end - start
+    print("Time_elapsed = ", end - start)
 
     # Test that convergence rates are in agreement with theoretical
     # expectation asymptotically
