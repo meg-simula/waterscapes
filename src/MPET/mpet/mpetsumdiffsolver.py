@@ -6,6 +6,7 @@ from dolfin import *
 
 from mpet.rm_basis_L2 import rigid_motions
 
+from numpy import random
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
@@ -367,9 +368,11 @@ class MPETSumDiffSolver(object):
             # solver.parameters.update(self.params["krylov_solver"])
             solver.set_operators(A, PP)
             
-        
-        # Start with up as up_, can help Krylov Solvers
-        self.up.assign(self.up_)
+        if self.params.testing:
+            up.vector()[:] = random.randn(up.vector().array().size)
+        else:        
+            # Start with up as up_, can help Krylov Solvers
+            self.up.assign(self.up_)
 
         while (float(time) < (T - 1.e-9)):
 

@@ -5,6 +5,7 @@ __author__ = "Eleonora Piersanti <eleonora@simula.no>"
 from dolfin import *
 
 from mpet.rm_basis_L2 import rigid_motions
+from numpy import random
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -384,7 +385,10 @@ class MPETSolver(object):
 
 
         # Start with up as up_, can help Krylov Solvers
-        self.up.assign(self.up_)
+        if self.params.testing:
+            up.vector()[:] = random.randn(up.vector().array().size)
+        else:    
+            self.up.assign(self.up_)
 
         while (float(time) < (T - 1.e-10)):
 
