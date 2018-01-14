@@ -29,7 +29,6 @@ class MPETProblem(object):
         """
 
         self.mesh = mesh
-
         # NB: Assumption that everything that depends on time does so
         # through this Constant time
         self.time = time

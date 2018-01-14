@@ -147,9 +147,9 @@ class MPETTotalPressureSolver(object):
         params.add("u_degree", 2)
         params.add("p_degree", 1)
         params.add("direct_solver", True)
+        params.add("testing", False)
         #params.add(KrylovSolver.default_parameters())
         #params.add(LUSolver.default_parameters())
-        #params.add("testing", False)
         #params.add("fieldsplit", False)
         #params.add("symmetric", False)
         return params
