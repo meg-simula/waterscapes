@@ -377,18 +377,20 @@ class MPETSolver(object):
         # Create solver
         if self.params.direct_solver == True:
             solver = LUSolver(A)
+            self.up.assign(self.up_)
+
         else:
             PP, _ = assemble_system(P, L, bcs)
             solver = PETScKrylovSolver("minres", "hypre_amg")
             # solver.parameters.update(self.params["krylov_solver"])
             solver.set_operators(A, PP)
+            if self.params.testing:
+                self.up.vector()[:] = random.randn(self.up.vector().array().size)
+            else:    
+                self.up.assign(self.up_)
 
 
         # Start with up as up_, can help Krylov Solvers
-        if self.params.testing:
-            up.vector()[:] = random.randn(up.vector().array().size)
-        else:    
-            self.up.assign(self.up_)
 
         while (float(time) < (T - 1.e-10)):
 

@@ -6,7 +6,7 @@ from dolfin import *
 
 from mpet.rm_basis_L2 import rigid_motions
 
-from numpy import random
+from numpy import random, sqrt
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
@@ -99,6 +99,7 @@ class MPETSumDiffSolver(object):
         "Create solver with given MPET problem and parameters."
         self.problem = problem
         self.niter = None 
+        self.condition_number = None
         # Update parameters if given
         self.params = self.default_params()
         if params is not None:
@@ -362,17 +363,29 @@ class MPETSumDiffSolver(object):
         # Create solver
         if self.params.direct_solver == True:
             solver = LUSolver(A)
+            self.up.assign(self.up_)
+
         else:
             PP, _ = assemble_system(P, L, bcs)
             solver = PETScKrylovSolver("minres", "hypre_amg")
             # solver.parameters.update(self.params["krylov_solver"])
             solver.set_operators(A, PP)
-            
-        if self.params.testing:
-            up.vector()[:] = random.randn(up.vector().array().size)
-        else:        
-            # Start with up as up_, can help Krylov Solvers
-            self.up.assign(self.up_)
+            if self.params.testing:
+                print "eigenvalue problem"
+                eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
+                eigensolver.parameters['spectrum'] = 'largest magnitude'
+                eigensolver.solve(1)
+                emax = eigensolver.get_eigenvalue(0)
+                eigensolver.parameters['spectrum'] = 'smallest magnitude'
+                eigensolver.solve(1)
+                emin = eigensolver.get_eigenvalue(0)
+                print "emax = ", emax
+                print "emin = ", emin 
+                self.condition_number = sqrt(emax[0]**2 + emax[1]**2)/sqrt(emin[0]**2 + emin[1]**2)
+                self.up.vector()[:] = random.randn(self.up.vector().array().size)
+            else:        
+                # Start with up as up_, can help Krylov Solvers
+                self.up.assign(self.up_)
 
         while (float(time) < (T - 1.e-9)):
 

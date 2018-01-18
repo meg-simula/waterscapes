@@ -128,7 +128,7 @@ def single_run(n=8, M=8, theta=1.0):
     problem.g = [Expression(g[i], t=time, degree=3) for i in range(A)]
     problem.u_bar = Expression(u_e, t=time, degree=3)
 
-    problem.u_nullspace=False
+    problem.displacement_nullspace=False
     p_ex = [Expression(p_e[i], t=time, degree=3) for i in range(A+1)]
     problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1,A+1)]
 

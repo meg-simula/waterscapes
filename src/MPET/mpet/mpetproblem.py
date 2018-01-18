@@ -59,7 +59,8 @@ class MPETProblem(object):
         # Assumption: Neumann condition is marked by 1
         # Assumption: Robin conditions is maked by 2
 
-        INVALID = 7101982
+        # INVALID = 7101982
+        INVALID = 3        
         markers = FacetFunction("size_t", mesh)
         markers.set_all(INVALID)
         self.momentum_boundary_markers = markers
