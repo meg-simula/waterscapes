@@ -259,7 +259,6 @@ class MPETTotalPressureSolver(object):
 
         As = range(A)
 
-        #FIXME
         F = inner(2*mu*sym(grad(u)), sym(grad(v)))*dx() \
             + p[0]*div(v)*dx()\
             + (div(u) - 1./lmbda*sum([alpha[i]*p[i+1] for i in As]) -1./lmbda*p[0])*w[0]*dx()\
@@ -424,4 +423,3 @@ class MPETTotalPressureSolver(object):
             # Update time
             time.assign(t)
         
-
