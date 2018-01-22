@@ -53,7 +53,7 @@ def constant_on_the_donut(n=8, M=8, theta=1.0):
 
     # Set-up solver
     params = dict(dt=dt, theta=theta, T=T)
-    solver = MPETSolver(problem, params)
+    solver = MPETTotalPressureSolverSymmetric(problem, params)
 
     # Using zero initial conditions by default
     
