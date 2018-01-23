@@ -282,7 +282,6 @@ class MPETTotalPressureSolver(object):
             
         # Add orthogonality versus rigid motions if nullspace for the
         # displacement
-        print u_nullspace
         if u_nullspace:
             F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
                  + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
@@ -367,7 +366,7 @@ class MPETTotalPressureSolver(object):
             solver.set_operators(A, PP)
             
             if self.params.testing:
-                print "eigenvalue problem"
+                # print "eigenvalue problem"
                 eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
                 eigensolver.parameters['tolerance'] = 1e-6
                 eigensolver.parameters['maximum_iterations'] = 10000
@@ -378,8 +377,8 @@ class MPETTotalPressureSolver(object):
                 eigensolver.parameters['spectrum'] = 'smallest magnitude'
                 eigensolver.solve(1)
                 emin = eigensolver.get_eigenvalue(0)
-                print "emax = ", emax
-                print "emin = ", emin 
+                # print "emax = ", emax
+                # print "emin = ", emin 
                 self.condition_number = sqrt(emax[0]**2 + emax[1]**2)/sqrt(emin[0]**2 + emin[1]**2)
 
                 self.up.vector()[:] = random.randn(self.up.vector().array().size)
