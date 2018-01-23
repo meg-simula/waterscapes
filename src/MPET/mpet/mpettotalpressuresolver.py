@@ -34,7 +34,7 @@ class MPETTotalPressureSolver(object):
 
     Boundary conditions:
 
-    We assume that there is a facet function marking the different
+    We assume that there is a mesh function marking the different
     subdomains of the boundary. 
 
     For the momentum equation (1):
@@ -50,7 +50,7 @@ class MPETTotalPressureSolver(object):
 
       (sigma(u) - sum_{a} alpha_a p_a I) * n = s
 
-    Assume that a FacetFunction indicates the different boundaries,
+    Assume that a mesh function indicates the different boundaries,
     and that only the Neumann boundary dO_m_N is marked by 1.
 
     For the continuity equations (2):
@@ -64,7 +64,8 @@ class MPETTotalPressureSolver(object):
       K grad p_a(., t) * n = I_a(t)
 
     Robin  (dO_c_a_R)
-     ...
+     
+      FIXME: DESCRIPTION MISSING
 
     Assume that for each a, a FacetFunction indicates the different
     boundaries, and that only the Neumann boundary dO_c_a_N is marked
@@ -78,6 +79,8 @@ class MPETTotalPressureSolver(object):
 
     Variational formulation (using Einstein summation notation over a
     in the elliptic equation below):
+
+      FIXME: TRANSFER TERMS MISSING FROM VARIATIONAL FORMULATION
 
     Find u(t) and p_a(t) such that
 
@@ -162,14 +165,14 @@ class MPETTotalPressureSolver(object):
         mesh = self.problem.mesh
 
         # Extract time step
-        dt = Constant(self.params.dt)
+        dt = Constant(self.params["dt"])
         
         # Extract the number of networks
         A = self.problem.params["A"]
 
         # Create function spaces 
-        V = VectorElement("CG", mesh.ufl_cell(), self.params.u_degree)
-        W = FiniteElement("CG", mesh.ufl_cell(), self.params.p_degree)
+        V = VectorElement("CG", mesh.ufl_cell(), self.params["u_degree"])
+        W = FiniteElement("CG", mesh.ufl_cell(), self.params["p_degree"])
 
         u_nullspace = self.problem.displacement_nullspace
         p_nullspace = self.problem.pressure_nullspace
@@ -231,7 +234,7 @@ class MPETTotalPressureSolver(object):
                 pass
                 
         # um and pm represent the solutions at time t + dt*theta
-        theta = self.params.theta
+        theta = self.params["theta"]
         um = theta*u + (1.0 - theta)*u_
         pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in range(A+1)]
         
@@ -269,12 +272,11 @@ class MPETTotalPressureSolver(object):
                     for i in As])*dx() \
 
         P = 0
-        if self.params.direct_solver == False:
-
-        # Define preconditioner form:
+        if not self.params["direct_solver"]:
+            # Define preconditioner form:
             pu = mu * inner(grad(u), grad(v))*dx()
             pp = sum(alpha[i]*alpha[i]/lmbda*p[i+1]*w[i+1]*dx() + dt*theta*K[i]*inner(grad(p[i+1]), grad(w[i+1]))*dx() \
-                    + (c[i] + sum([dt*theta*S[i][j] for j in (As[:i]+As[i+1:])]))*p[i+1]*w[i+1]*dx() for i in As)
+                    + (c[i] + sum([dt*theta*S[i][j] for j in list(As[:i])+list(As[i+1:])]))*p[i+1]*w[i+1]*dx() for i in As)
             ppt = p[0]*w[0]*dx()
             P = pu + pp + ppt
             
@@ -282,15 +284,14 @@ class MPETTotalPressureSolver(object):
         # displacement
         print u_nullspace
         if u_nullspace:
-            print "nullspace"
             F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
                  + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
             
-            if self.params.direct_solver == False:
-                # Since there are no bc on u I need to make the preconditioner pd adding a mass matrix
-                print "making P non singular"
-                P += inner(u, v)*dx()
-                P += sum(z[i]*r[i]*dx() for i in range(dimZ))
+            if not self.params["direct_solver"]:
+                # Since there are no bc on u I need to make the
+                # preconditioner pd adding a mass matrix
+                P += 1.0/volume*inner(u, v)*dx()
+                P += volume*sum(z[i]*r[i]*dx() for i in range(dimZ))
 
         # Add orthogonality versus constants if nullspace for the
         # displacement
@@ -299,7 +300,7 @@ class MPETTotalPressureSolver(object):
             for (k, p_nullspace) in enumerate(self.problem.pressure_nullspace):
                 if p_nullspace:
                     F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
-                    if self.params.direct_solver == False:     
+                    if not self.params["direct_solver"]:
                         P += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx()  
                     i += 1
         
@@ -356,7 +357,7 @@ class MPETTotalPressureSolver(object):
             A.axpy(1.0, A2, False)
         
         # Create solver
-        if self.params.direct_solver == True:
+        if self.params["direct_solver"]:
             solver = LUSolver(A)
             self.up.assign(self.up_)
         else:

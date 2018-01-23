@@ -59,8 +59,8 @@ def exact_solutions(params):
     #     pf += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])]
 
 ###################################################################
-    #linear in space
-    # u = [1.0,1.0]
+#linear in space
+# u = [1.0,1.0]
 
     # pf = []
     # for i in range(A):
@@ -123,7 +123,7 @@ def exact_solutions(params):
     g_str = [sympy.printing.ccode(g[i]) for i in range(A)]
     
     return (u_str, p_str, f_str, g_str)
-    
+
 def single_run(n=8, M=8, theta=1.0):
 
     "N is the mesh size, M the number of time steps."
@@ -163,7 +163,7 @@ def single_run(n=8, M=8, theta=1.0):
     on_boundary.mark(problem.momentum_boundary_markers, 0)
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
-    
+        
     # Set-up solver
     params = dict(dt=dt, theta=theta, T=T, direct_solver=True)
     solver = MPETSumDiffSolver(problem, params)
@@ -180,9 +180,9 @@ def single_run(n=8, M=8, theta=1.0):
     # Solve
     solutions = solver.solve()
     for (up, t) in solutions:
-	(u, p0, p1, p2) = up.split()
-	info("t = %g" % t)
-
+        (u, p0, p1, p2) = up.split()
+        info("t = %g" % t)
+        
     (u, p0, p1, p2) = up.split()
     p = (p1, p2)
 
@@ -192,12 +192,12 @@ def single_run(n=8, M=8, theta=1.0):
     p_err_H1 = [errornorm(problem.p_bar[i], p[i], "H1", degree_rise=5) for i in range(A)]
     h = mesh.hmin()
     return (u_err_L2, u_err_H1, p_err_L2, p_err_H1, h)
-    
+
 def convergence_exp(theta):
     import time
     
     # Remove all output from FEniCS (except errors)
-    set_log_level(ERROR)
+    set_log_level(LogLevel.ERROR)
 
     # Make containers for errors
     u_errorsL2 = []

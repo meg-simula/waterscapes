@@ -5,7 +5,7 @@ __all__ = []
 
 import pytest
 from mpet import *
-set_log_level(13)
+
 # Turn on FEniCS optimizations
 parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
@@ -155,7 +155,7 @@ def convergence_exp(theta):
     import time
     
     # Remove all output from FEniCS (except errors)
-    set_log_level(WARNING)
+    set_log_level(LogLevel.WARNING)
 
     # Make containers for errors
     u_errorsL2 = []

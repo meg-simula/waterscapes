@@ -163,14 +163,14 @@ class MPETSumDiffSolver(object):
         mesh = self.problem.mesh
 
         # Extract time step
-        dt = Constant(self.params.dt)
+        dt = Constant(self.params["dt"])
         
         # Extract the number of networks
         A = self.problem.params["A"]
 
         # Create function spaces 
-        V = VectorElement("CG", mesh.ufl_cell(), self.params.u_degree)
-        W = FiniteElement("CG", mesh.ufl_cell(), self.params.p_degree)
+        V = VectorElement("CG", mesh.ufl_cell(), self.params["u_degree"])
+        W = FiniteElement("CG", mesh.ufl_cell(), self.params["p_degree"])
 
         u_nullspace = self.problem.displacement_nullspace
         p_nullspace = self.problem.pressure_nullspace
@@ -232,7 +232,7 @@ class MPETSumDiffSolver(object):
                 pass
                 
         # um and pm represent the solutions at time t + dt*theta
-        theta = self.params.theta
+        theta = self.params["theta"]
         um = theta*u + (1.0 - theta)*u_
         pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in range(A+1)]
         
@@ -272,7 +272,7 @@ class MPETSumDiffSolver(object):
           + sum([-A*dt*S[0][i]*pm[i+1]*w[i+1] for i in As1])*dx()
 
         P = 0
-        if self.params.direct_solver == False:
+        if not self.params["direct_solver"]:
 
         # Define preconditioner form:
             pu = mu * inner(grad(u), grad(v))*dx()
@@ -289,7 +289,7 @@ class MPETSumDiffSolver(object):
             F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
                  + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
             
-            if self.params.direct_solver == False:
+            if not self.params["direct_solver"]:
                 # Since there are no bc on u I need to make the preconditioner pd adding a mass matrix
                 P += 1.0/volume*inner(u, v)*dx()
                 P += volume*sum(z[i]*r[i]*dx() for i in range(dimZ))
@@ -301,7 +301,7 @@ class MPETSumDiffSolver(object):
             for (k, p_nullspace) in enumerate(self.problem.pressure_nullspace):
                 if p_nullspace:
                     F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
-                    if self.params.direct_solver == False:     
+                    if not self.params["direct_solver"]:
                         P += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx()  
                     i += 1
         
@@ -361,7 +361,7 @@ class MPETSumDiffSolver(object):
         #    A.axpy(1.0, A2, False)
         
         # Create solver
-        if self.params.direct_solver == True:
+        if self.params["direct_solver"]:
             solver = LUSolver(A)
             self.up.assign(self.up_)
 

@@ -73,7 +73,8 @@ class MPETSolver(object):
       K grad p_a(., t) * n = I_a(t)
 
     Robin  (dO_c_a_R)
-     ...
+       
+      DESCRIPTION MISSING
 
     Assume that for each a, a FacetFunction indicates the different
     boundaries, and that only the Neumann boundary dO_c_a_N is marked
@@ -87,6 +88,8 @@ class MPETSolver(object):
 
     Variational formulation (using Einstein summation notation over a
     in the elliptic equation below):
+
+       S MISSING IN FORMULATION BELOW
 
     Find u(t) and p_a(t) such that
 
@@ -172,25 +175,25 @@ class MPETSolver(object):
         mesh = self.problem.mesh
 
         # Extract time step
-        dt = Constant(self.params.dt)
+        dt = Constant(self.params["dt"])
         
         # Extract the number of networks
         A = self.problem.params["A"]
 
         # Create function spaces 
-        V = VectorElement("CG", mesh.ufl_cell(), self.params.u_degree)
-        W = FiniteElement("CG", mesh.ufl_cell(), self.params.p_degree)
+        V = VectorElement("CG", mesh.ufl_cell(), self.params["u_degree"])
+        W = FiniteElement("CG", mesh.ufl_cell(), self.params["p_degree"])
 
         u_nullspace = self.problem.displacement_nullspace
         p_nullspace = self.problem.pressure_nullspace
         dimQ = sum(p_nullspace)
         if u_nullspace:
-            debug("Nullspace for u detected")
+            #debug("Nullspace for u detected")
             Z = rigid_motions(self.problem.mesh)
             dimZ = len(Z)
             RU = VectorElement('R', mesh.ufl_cell(), 0, dimZ)
             if dimQ:
-                debug("Nullspace for p detected")
+                #debug("Nullspace for p detected")
                 RP = [FiniteElement('R', mesh.ufl_cell(), 0)
                       for i in range(dimQ)]
                 M = MixedElement([V] + [W for i in range(A)] + [RU] + RP)
@@ -198,15 +201,15 @@ class MPETSolver(object):
                 M = MixedElement([V] + [W for i in range(A)] + [RU])
         else:
             if dimQ:
-                debug("Nullspace for p, but not for u detected")
+                #debug("Nullspace for p, but not for u detected")
                 RP = [FiniteElement('R', mesh.ufl_cell(), 0)
                       for i in range(dimQ)]
                 M = MixedElement([V] + [W for i in range(A)] + RP)
             else:
-                debug("Constructing standard variational form")
+                #debug("Constructing standard variational form")
                 M = MixedElement([V] + [W for i in range(A)])
 
-        debug("Constructing Function Space")
+        #debug("Constructing Function Space")
         VW = FunctionSpace(mesh, M)
 
         # Create previous solution field(s) and extract previous
@@ -217,7 +220,6 @@ class MPETSolver(object):
         
         # Create trial functions and extract displacement u and pressure
         # trial functions p = (p_1, ..., p_A)
-
         up = TrialFunctions(VW)
         u = up[0]
         p = up[1:A+1]
@@ -244,7 +246,7 @@ class MPETSolver(object):
                 pass
                 
         # um and pm represent the solutions at time t + dt*theta
-        theta = self.params.theta
+        theta = self.params["theta"]
         um = theta*u + (1.0 - theta)*u_
         pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in range(A)]
         
@@ -270,7 +272,7 @@ class MPETSolver(object):
         # Define variational form to be solved at each time-step.
         dx = Measure("dx", domain=mesh)
 
-        debug("Assembling form")
+        #debug("Assembling form")
         As = range(A)
         F = inner(sigma(u), sym(grad(v)))*dx() \
             + sum([-alpha[i]*p[i]*div(v) for i in As])*dx() \
@@ -280,16 +282,8 @@ class MPETSolver(object):
             + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \
                    for i in As])*dx() \
 
-        stabilization = self.params.stabilization
-        if stabilization == True:
-            h = mesh.hmin()
-            mu = E/(2.0*((1.0 + nu)))
-            lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
-            F += inner(sum([-h*h*K[i]/4.0(lmbda+2*mu)*grad(p[i]-p_[i])*w[i] for i in As]) )
-
-
         P = 0
-        if self.params.direct_solver == False:
+        if not self.params["direct_solver"]:
             info("Assembling preconditioner")
             mu = E/(2.0*((1.0 + nu)))
             pu = mu * inner(grad(u), grad(v))*dx() 
@@ -299,11 +293,11 @@ class MPETSolver(object):
 
         # Add orthogonality vefrsus rigid motions if nullspace for the
         # displacement
-        debug("Assembling nullspace for u")
+        #debug("Assembling nullspace for u")
         if u_nullspace:
             F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
                  + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
-            if self.params.direct_solver == False:     
+            if not self.params["direct_solver"]:     
                 P += sum(z[i]*r[i]*dx() for i in range(dimZ)) + inner(u,v)*dx() 
             
         # Add orthogonality versus constants if nullspace for the
@@ -313,7 +307,7 @@ class MPETSolver(object):
             for (k, p_nullspace) in enumerate(self.problem.pressure_nullspace):
                 if p_nullspace:
                     F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
-                    if self.params.direct_solver == False:     
+                    if not self.params["direct_solver"]:
                         P += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx() 
                     i += 1
                     
@@ -375,7 +369,7 @@ class MPETSolver(object):
                 A.axpy(1.0, A2, False)
         
         # Create solver
-        if self.params.direct_solver == True:
+        if self.params["direct_solver"]:
             solver = LUSolver(A)
             self.up.assign(self.up_)
 
@@ -388,7 +382,6 @@ class MPETSolver(object):
                 self.up.vector()[:] = random.randn(self.up.vector().array().size)
             else:    
                 self.up.assign(self.up_)
-
 
         # Start with up as up_, can help Krylov Solvers
 
