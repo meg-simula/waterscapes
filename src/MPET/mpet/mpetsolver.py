@@ -378,7 +378,7 @@ class MPETSolver(object):
             solver = PETScKrylovSolver("minres", "hypre_amg")
             # solver.parameters.update(self.params["krylov_solver"])
             solver.set_operators(A, PP)
-            if self.params.testing:
+            if self.params["testing"]:
                 self.up.vector()[:] = random.randn(self.up.vector().array().size)
             else:    
                 self.up.assign(self.up_)

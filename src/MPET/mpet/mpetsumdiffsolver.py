@@ -370,7 +370,7 @@ class MPETSumDiffSolver(object):
             solver = PETScKrylovSolver("minres", "hypre_amg")
             # solver.parameters.update(self.params["krylov_solver"])
             solver.set_operators(A, PP)
-            if self.params.testing:
+            if self.params["testing"]:
                 # print "eigenvalue problem"
                 eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
                 eigensolver.parameters['spectrum'] = 'largest magnitude'
