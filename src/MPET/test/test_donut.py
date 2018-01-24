@@ -13,7 +13,6 @@ parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
 notpipelines = pytest.mark.notpipelines
 
-@notpipelines
 def constant_on_the_donut(n=8, M=8, theta=1.0):
 
     "N is t_he mesh size, M the number of time steps."
@@ -72,7 +71,6 @@ def constant_on_the_donut(n=8, M=8, theta=1.0):
     assert(abs(p_x + 0.2) < 1.e-8), "Point value of p not matching reference"
     assert(abs(norm(p, "L2")/volume - 0.2) < 1.e-10), "Point value of p not matching reference"
 
-@notpipelines
 def constant_on_the_donut_nullspaces(n=8, M=8, theta=1.0):
         
     "N is t_he mesh size, M the number of time steps."
@@ -125,11 +123,11 @@ def constant_on_the_donut_nullspaces(n=8, M=8, theta=1.0):
     for (up, t) in solutions:
         info("t = %g" % t)
 
-
+notpipelines = pytest.mark.notpipelines
+@notpipelines
 def test_donut():
     constant_on_the_donut()
     constant_on_the_donut_nullspaces()
     
 if __name__ == "__main__":
-    @notpipelines
     test_donut()
