@@ -139,7 +139,7 @@ def single_run(n=8, M=8, theta=1.0):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
-    params = dict(dt=dt, theta=theta, T=T, direct_solver=False)
+    params = dict(dt=dt, theta=theta, T=T, testing=False, direct_solver=False)
     solver = MPETTotalPressureSolver(problem, params)
 
     # Set initial conditions

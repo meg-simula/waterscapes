@@ -79,7 +79,7 @@ def exact_solutions(params):
     sigma_ast = [[2*mu*eps_u[i][j] for j in range(d)] for i in range(d)]
 
     p0I = [[0]*i + [p[0]] + [0]*(d-i-1) for i in range(d)]
-    sigma = sigma_ast + p0I 
+    sigma = [[-2*mu*eps_u[i][j] for j in range(d)] for i in range(d)]+ p0I 
     # print(sigma)
 
     div_sigma_ast = [sum([diff(sigma_ast[i][j], x[j]) for j in range(d)])
@@ -146,7 +146,7 @@ def single_run(n=8, M=8, theta=1.0):
     problem.f = Expression(f, t=time, degree=3)
     problem.g = [Expression(g[i], t=time, degree=3) for i in range(A)]
     problem.u_bar = Expression(u_e, t=time, degree=3)
-    problem.displacement_nullspace = False
+    problem.displacement_nullspace = True
 
     sigma_tuple = tuple(tuple(x) for x in sigma)
 
@@ -158,7 +158,7 @@ def single_run(n=8, M=8, theta=1.0):
 
     # Apply Dirichlet conditions everywhere (indicated by the zero marker)
     on_boundary = CompiledSubDomain("on_boundary")
-    on_boundary.mark(problem.momentum_boundary_markers, 0)
+    on_boundary.mark(problem.momentum_boundary_markers, 1)
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
@@ -181,7 +181,7 @@ def single_run(n=8, M=8, theta=1.0):
         info("t = %g" % t)
     len(up)
     # from IPython import embed; embed()
-    (u, p0, p1, p2,) = up.split()
+    (u, p0, p1, p2, _) = up.split()
     p = (p1, p2)
     u_err_L2 = errornorm(problem.u_bar, u, "L2", degree_rise=5)
     u_err_H1 = errornorm(problem.u_bar, u, "H1", degree_rise=5)
@@ -194,7 +194,7 @@ def convergence_exp(theta):
     import time
     
     # Remove all output from FEniCS (except errors)
-    set_log_level(ERROR)
+    set_log_level(LogLevel.ERROR)
 
     # Make containers for errors
     u_errorsL2 = []

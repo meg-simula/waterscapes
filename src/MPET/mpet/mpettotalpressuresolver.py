@@ -390,30 +390,38 @@ class MPETTotalPressureSolver(object):
 
             # Handle the different parts of the rhs a bit differently
             # due to theta-scheme
-            _, b = assemble_system(a, L, bcs)  
+            b = assemble(L)  
+
+            # Handle the different parts of the rhs a bit differently
+            # due to theta-scheme
             # Set t_theta to t + dt (when theta = 1.0) or t + 1/2 dt
             # (when theta = 0.5)
             t_theta = float(time) + theta*float(dt)
             time.assign(t_theta)                
             # Assemble time-dependent rhs for parabolic equations
             for L1i in L1: 
-                _, b1 = assemble_system(a, L1i, bcs)  
+                b1 = assemble(L1i)  
                 b.axpy(1.0, b1)
             
             for L2i in L2: 
-                _, b2 = assemble_system(a, rhs(L2i), bcs)
+                b2 = assemble(rhs(L2i))
                 b.axpy(1.0, b2)    
             # Set t to "t"
             t = float(time) + (1.0 - theta)*float(dt)
             time.assign(t)
             
             # Assemble time-dependent rhs for elliptic equations
-            _, b0 = assemble_system(a, L0, bcs)
+            b0 = assemble(L0)
             b.axpy(1.0, b0)
 
+
             # Apply boundary conditions            
+            for bc in bcs:
+                bc.apply(b)    
+                apply_symmetric(bc, A, b)
+
             # Solve
-            self.niter = solver.solve(self.up.vector(), b)
+            self.niter = solver.solve(A, self.up.vector(), b)
 
             # Yield solution and time
             yield self.up, float(time)
@@ -422,4 +430,3 @@ class MPETTotalPressureSolver(object):
 
             # Update time
             time.assign(t)
-        
