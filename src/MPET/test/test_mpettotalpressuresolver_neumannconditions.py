@@ -12,6 +12,10 @@ parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
+class Left(SubDomain):
+        def inside(self, x, on_boundary):
+            return on_boundary and near(x[0], 0) 
+
 def convergence_rates(errors, hs):
     import math
     rates = [(math.log(errors[i+1]/errors[i]))/(math.log(hs[i+1]/hs[i]))
@@ -52,13 +56,13 @@ def exact_solutions(params):
     # for i in range(1, A+1):
     #     p += [-(i)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
 
-    u = [x[0]*(x[0]-1.0)*x[1]*(x[1]-1),
-         x[0]*(x[0]-1.0)*x[1]*(x[1]-1)]
+    u = [sin(pi*x[0])*sin(pi*x[1])*sin(omega*t + 1.0),
+         sin(pi*x[0])*sin(pi*x[1])*sin(omega*t + 1.0)]
 
     p = []
     p += [0]
     for i in range(1, A+1):
-        p += [-(i)*x[0]*(x[0]-1.0)*x[1]*(x[1]-1)]
+        p += [-(i)*sin(pi*x[0])*sin(pi*x[1])*sin(omega*t + 1.0)]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
@@ -79,7 +83,7 @@ def exact_solutions(params):
     sigma_ast = [[2*mu*eps_u[i][j] for j in range(d)] for i in range(d)]
 
     p0I = [[0]*i + [p[0]] + [0]*(d-i-1) for i in range(d)]
-    sigma = [[-2*mu*eps_u[i][j] for j in range(d)] for i in range(d)]+ p0I 
+    sigma = [[2*mu*eps_u[i][j] for j in range(d)] for i in range(d)] + p0I 
     # print(sigma)
 
     div_sigma_ast = [sum([diff(sigma_ast[i][j], x[j]) for j in range(d)])
@@ -146,24 +150,27 @@ def single_run(n=8, M=8, theta=1.0):
     problem.f = Expression(f, t=time, degree=3)
     problem.g = [Expression(g[i], t=time, degree=3) for i in range(A)]
     problem.u_bar = Expression(u_e, t=time, degree=3)
-    problem.displacement_nullspace = True
+    problem.displacement_nullspace = False
 
-    sigma_tuple = tuple(tuple(x) for x in sigma)
+    sigma_tuple = tuple(tuple(i) for i in sigma)
 
     stress_ex = Expression(sigma_tuple, t=time, degree=3)
-    problem.s = stress_ex*normal
+    problem.s = dot(stress_ex, normal)
 
     p_ex = [Expression(p_e[i], t=time, degree=3) for i in range(A+1)]
     problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1,A+1)]
 
     # Apply Dirichlet conditions everywhere (indicated by the zero marker)
     on_boundary = CompiledSubDomain("on_boundary")
-    on_boundary.mark(problem.momentum_boundary_markers, 1)
+    left = Left()
+    on_boundary.mark(problem.momentum_boundary_markers, 0)
+    left.mark(problem.momentum_boundary_markers, 1)
+
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
-    params = dict(dt=dt, theta=theta, T=T, direct_solver=False)
+    params = dict(dt=dt, theta=theta, T=T, direct_solver=True)
     solver = MPETTotalPressureSolver(problem, params)
 
     # Set initial conditions
@@ -181,7 +188,7 @@ def single_run(n=8, M=8, theta=1.0):
         info("t = %g" % t)
     len(up)
     # from IPython import embed; embed()
-    (u, p0, p1, p2, _) = up.split()
+    (u, p0, p1, p2) = up.split()
     p = (p1, p2)
     u_err_L2 = errornorm(problem.u_bar, u, "L2", degree_rise=5)
     u_err_H1 = errornorm(problem.u_bar, u, "H1", degree_rise=5)

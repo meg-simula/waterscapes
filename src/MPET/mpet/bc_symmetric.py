@@ -9,10 +9,11 @@ def zero_rows_cols(dofs, A, b = None):
     # import pdb; pdb.set_trace()  
     # from IPython import embed; embed()  
     amat = as_backend_type(A).mat()
-    if b != None:
-        bvec = as_backend_type(b).vec()
-    else:
+
+    if b is None:
         bvec = None
+    else:
+        bvec = as_backend_type(b).vec()
     amat.zeroRowsColumns(dofs, x = bvec, b = bvec)
 
 def apply_symmetric(bc, A, b = None):

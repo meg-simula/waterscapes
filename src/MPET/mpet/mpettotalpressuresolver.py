@@ -7,6 +7,8 @@ from dolfin import *
 from mpet.rm_basis_L2 import rigid_motions
 
 from numpy import random
+
+from mpet.bc_symmetric import *
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
@@ -289,8 +291,8 @@ class MPETTotalPressureSolver(object):
             if not self.params["direct_solver"]:
                 # Since there are no bc on u I need to make the
                 # preconditioner pd adding a mass matrix
-                P += 1.0/volume*inner(u, v)*dx()
-                P += volume*sum(z[i]*r[i]*dx() for i in range(dimZ))
+                P += inner(u, v)*dx()
+                P += sum(z[i]*r[i]*dx() for i in range(dimZ))
 
         # Add orthogonality versus constants if nullspace for the
         # displacement
