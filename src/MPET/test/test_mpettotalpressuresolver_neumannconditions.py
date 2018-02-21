@@ -48,21 +48,21 @@ def exact_solutions(params):
     t = sympy.symbols("t")
 
     # Define exact solutions u and p
-    # u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0),
-    #      sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
-
-    # p = []
-    # p += [0]
-    # for i in range(1, A+1):
-    #     p += [-(i)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
-
-    u = [sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + t),
-         sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + t)]
+    u = [x[0]*x[1]*x[1],
+         x[1]*x[1]*x[1]]
 
     p = []
     p += [0]
     for i in range(1, A+1):
-        p += [-(i)*sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + t)]
+        p += [-(i)*x[0]]
+
+    # u = [sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + t),
+    #      sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + t)]
+
+    # p = []
+    # p += [0]
+    # for i in range(1, A+1):
+    #     p += [-(i)*sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + t)]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
@@ -85,7 +85,7 @@ def exact_solutions(params):
     #I = Identity(d)
     p0I = [[0]*i + [p[0]] + [0]*(d-i-1) for i in range(d)]
     # print(p0I)
-    sigma = [[2*mu*eps_u[i][j] for j in range(d)] for i in range(d)] + p0I 
+    sigma = sigma_ast + p0I 
     # print(sigma)
 
     div_sigma_ast = [sum([diff(sigma_ast[i][j], x[j]) for j in range(d)])
@@ -166,14 +166,13 @@ def single_run(n=8, M=8, theta=1.0):
     on_boundary = CompiledSubDomain("on_boundary")
     left = Left()
     on_boundary.mark(problem.momentum_boundary_markers, 0)
-    # left.mark(problem.momentum_boundary_markers, 1)
-
+    left.mark(problem.momentum_boundary_markers, 1)
 
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
-    params = dict(dt=dt, theta=theta, T=T, direct_solver=True)
+    params = dict(dt=dt, theta=theta, T= T, direct_solver=True)
     solver = MPETTotalPressureSolver(problem, params)
 
     # Set initial conditions
@@ -193,7 +192,7 @@ def single_run(n=8, M=8, theta=1.0):
     # from IPython import embed; embed()
     (u, p0, p1, p2) = up.split()
 
-    File("u.pvd")<<u
+    File("u_s.pvd")<<u
     File("u_exact.pvd")<<interpolate(problem.u_bar, V)
 
     p = (p1, p2)
@@ -268,8 +267,8 @@ def convergence_exp(theta):
 notpipelines = pytest.mark.notpipelines
 @notpipelines
 def test_convergence():
-    convergence_exp(0.5)
-    # convergence_exp(1.0)
+    # convergence_exp(0.5)
+    convergence_exp(1.0)
 
 if __name__ == "__main__":
 

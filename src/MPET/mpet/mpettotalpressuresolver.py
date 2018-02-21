@@ -310,14 +310,14 @@ class MPETTotalPressureSolver(object):
         ROBIN_MARKER = 2
         markers = self.problem.momentum_boundary_markers
         dsm = Measure("ds", domain=mesh, subdomain_data=markers)
-        L0 = dot(f, v)*dx() + inner(s, v)*dsm(NEUMANN_MARKER)
+        L0 = dot(f, v)*dx() + dot(s, v)*dsm(NEUMANN_MARKER)
 
         # Add source and flux boundary conditions for continuity equations
         dsc = []
         L1 = []
         L2 = []
         for i in As:
-            markers = self.problem.continuity_boundary_markers[i-1]
+            markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
             L1 += [dt*g[i]*w[i+1]*dx() + dt*I[i]*w[i+1]*dsc[i](NEUMANN_MARKER)]
 
@@ -347,10 +347,6 @@ class MPETTotalPressureSolver(object):
         # Assemble left-hand side matrix
                 
         A = assemble(a)  
-
-        for L2i in L2: 
-            A2 = assemble(lhs(L2i))  
-            A.axpy(1.0, A2, False)
         
         # Create solver
         solver = LUSolver(A)
@@ -365,19 +361,14 @@ class MPETTotalPressureSolver(object):
             # due to theta-scheme
             # Set t_theta to t + dt (when theta = 1.0) or t + 1/2 dt
             # (when theta = 0.5)
-            t_theta = float(time) + theta*float(dt)
-            time.assign(t_theta)                
+            t = float(time) + float(dt)
+            time.assign(t)
             # Assemble time-dependent rhs for parabolic equations
             for L1i in L1: 
                 b1 = assemble(L1i)  
                 b.axpy(1.0, b1)
             
-            for L2i in L2: 
-                b2 = assemble(rhs(L2i))
-                b.axpy(1.0, b2)    
             # Set t to "t"
-            t = float(time) + (1.0 - theta)*float(dt)
-            time.assign(t)
             
             # Assemble time-dependent rhs for elliptic equations
             b0 = assemble(L0)
@@ -386,8 +377,8 @@ class MPETTotalPressureSolver(object):
 
             # Apply boundary conditions            
             for bc in bcs:
-                bc.apply(b)   
-                bc.apply(A) 
+                bc.apply(A)   
+                bc.apply(b) 
                 # apply_symmetric(bc, A, b)
 
             # Solve
