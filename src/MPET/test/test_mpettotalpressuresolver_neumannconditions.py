@@ -56,13 +56,13 @@ def exact_solutions(params):
     # for i in range(1, A+1):
     #     p += [-(i)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
 
-    u = [sin(pi*x[0])*sin(pi*x[1])*sin(omega*t + 1.0),
-         sin(pi*x[0])*sin(pi*x[1])*sin(omega*t + 1.0)]
+    u = [sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + 1.0),
+         sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + 1.0)]
 
     p = []
     p += [0]
     for i in range(1, A+1):
-        p += [-(i)*sin(pi*x[0])*sin(pi*x[1])*sin(omega*t + 1.0)]
+        p += [-(i)*sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + 1.0)]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
@@ -82,7 +82,9 @@ def exact_solutions(params):
 
     sigma_ast = [[2*mu*eps_u[i][j] for j in range(d)] for i in range(d)]
 
+    #I = Identity(d)
     p0I = [[0]*i + [p[0]] + [0]*(d-i-1) for i in range(d)]
+    # print(p0I)
     sigma = [[2*mu*eps_u[i][j] for j in range(d)] for i in range(d)] + p0I 
     # print(sigma)
 
@@ -164,7 +166,8 @@ def single_run(n=8, M=8, theta=1.0):
     on_boundary = CompiledSubDomain("on_boundary")
     left = Left()
     on_boundary.mark(problem.momentum_boundary_markers, 0)
-    left.mark(problem.momentum_boundary_markers, 1)
+    # left.mark(problem.momentum_boundary_markers, 1)
+
 
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
@@ -189,6 +192,10 @@ def single_run(n=8, M=8, theta=1.0):
     len(up)
     # from IPython import embed; embed()
     (u, p0, p1, p2) = up.split()
+
+    File("u.pvd")<<u
+    File("u_exact.pvd")<<interpolate(problem.u_bar, V)
+
     p = (p1, p2)
     u_err_L2 = errornorm(problem.u_bar, u, "L2", degree_rise=5)
     u_err_H1 = errornorm(problem.u_bar, u, "H1", degree_rise=5)
@@ -229,6 +236,7 @@ def convergence_exp(theta):
             p_errorsL2[i] += [errpi]
         for (i, errpi) in enumerate(errpH1):
             p_errorsH1[i] += [errpi]
+
 
     # Compute convergence rates:
     u_ratesL2 = convergence_rates(u_errorsL2, hs)

@@ -327,6 +327,7 @@ class MPETTotalPressureSolver(object):
         
         return F, L0, L1, L2, P, up_, up
 
+
     def solve(self):
         """Solve given MPET problem, yield solutions at each time step.
 
@@ -351,10 +352,10 @@ class MPETTotalPressureSolver(object):
         
         # Assemble left-hand side matrix
                 
-        A, _ = assemble_system(a, L, bcs)  
+        A = assemble(a)  
 
         for L2i in L2: 
-            A2, _ = assemble_system(lhs(L2i), L, bcs)  
+            A2 = assemble(lhs(L2i))  
             A.axpy(1.0, A2, False)
         
         # Create solver
