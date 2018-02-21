@@ -56,13 +56,13 @@ def exact_solutions(params):
     # for i in range(1, A+1):
     #     p += [-(i)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
 
-    u = [sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + 1.0),
-         sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + 1.0)]
+    u = [sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t),
+         sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t)]
 
     p = []
     p += [0]
     for i in range(1, A+1):
-        p += [-(i)*sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + 1.0)]
+        p += [-(i)*sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t)]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
