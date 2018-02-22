@@ -12,9 +12,9 @@ parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
-class Left(SubDomain):
+class Right(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary and near(x[0], 0) 
+            return on_boundary and near(x[0], 1) 
 
 def convergence_rates(errors, hs):
     import math
@@ -48,13 +48,13 @@ def exact_solutions(params):
     t = sympy.symbols("t")
 
     # Define exact solutions u and p
-    u = [x[0]*x[1]*x[1],
-         x[1]*x[1]*x[1]]
+    # u = [x[0]*x[1]*x[1],
+    #      x[1]*x[1]*x[1]]
 
-    p = []
-    p += [0]
-    for i in range(1, A+1):
-        p += [-(i)*x[0]]
+    # p = []
+    # p += [0]
+    # for i in range(1, A+1):
+    #     p += [-(i)*x[0]]
 
     # u = [sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + t),
     #      sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + t)]
@@ -63,6 +63,15 @@ def exact_solutions(params):
     # p += [0]
     # for i in range(1, A+1):
     #     p += [-(i)*sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + t)]
+
+    u = [sin(pi*x[0])*sin(pi*x[1]),
+         sin(pi*x[0])*sin(pi*x[1])]
+
+    p = []
+    p += [0]
+    for i in range(1, A+1):
+        p += [-(i)*sin(pi*x[0])*sin(pi*x[1])]
+
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
@@ -139,6 +148,8 @@ def single_run(n=8, M=8, theta=1.0):
     S = ((1.0, 1.0), (1.0, 1.0))
     E = 1.0
     nu = 0.35
+    mu = E/(2.0*(1.0+nu))
+
     params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
 
     info("Deriving exact solutions")
@@ -156,17 +167,18 @@ def single_run(n=8, M=8, theta=1.0):
 
     sigma_tuple = tuple(tuple(i) for i in sigma)
 
-    stress_ex = Expression(sigma_tuple, t=time, degree=3)
-    problem.s = dot(stress_ex, normal)
+    # stress_ex = Expression(sigma_tuple, t=time, degree=3)
+    problem.s = Expression(("2*mu*(3.14159265358979*sin(3.14159265358979*x[1])*cos(3.14159265358979*x[0])) + 3.0*sin(3.14159265358979*x[0])*sin(3.14159265358979*x[1]) + 2.7149566142134*sin(3.14159265358979*x[0] + 3.14159265358979*x[1])",\
+                            "2*mu*(1.5707963267949*sin(3.14159265358979*x[0])*cos(3.14159265358979*x[1]) + 1.5707963267949*sin(3.14159265358979*x[1])*cos(3.14159265358979*x[0]))"), mu=mu, degree=3)
 
     p_ex = [Expression(p_e[i], t=time, degree=3) for i in range(A+1)]
     problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1,A+1)]
 
     # Apply Dirichlet conditions everywhere (indicated by the zero marker)
     on_boundary = CompiledSubDomain("on_boundary")
-    left = Left()
+    right = Right()
     on_boundary.mark(problem.momentum_boundary_markers, 0)
-    left.mark(problem.momentum_boundary_markers, 1)
+    right.mark(problem.momentum_boundary_markers, 1)
 
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
@@ -185,7 +197,7 @@ def single_run(n=8, M=8, theta=1.0):
         assign(solver.up_.sub(i+1), interpolate(p_ex[i], Q))
     
     # Solve
-    solutions = solver.solve_direct()
+    solutions = solver.solve()
     for (up, t) in solutions:
         info("t = %g" % t)
     len(up)
