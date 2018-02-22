@@ -56,21 +56,21 @@ def exact_solutions(params):
     # for i in range(1, A+1):
     #     p += [-(i)*x[0]]
 
-    # u = [sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + t),
-    #      sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + t)]
-
-    # p = []
-    # p += [0]
-    # for i in range(1, A+1):
-    #     p += [-(i)*sin(pi*x[0] + pi/2.0)*sin(pi*x[1] + pi/2.0)*sin(omega*t + t)]
-
-    u = [sin(pi*x[0])*sin(pi*x[1]),
-         sin(pi*x[0])*sin(pi*x[1])]
+    u = [sin(2.0*pi*x[0])*sin(2.0*pi*x[1])*sin(omega*t + t),
+         sin(2.0*pi*x[0])*sin(2.0*pi*x[1])*sin(omega*t + t)]
 
     p = []
     p += [0]
     for i in range(1, A+1):
-        p += [-(i)*sin(pi*x[0])*sin(pi*x[1])]
+        p += [-(i)*sin(2.0*pi*x[0])*sin(2.0*pi*x[1])*sin(omega*t + t)]
+
+    # u = [sin(pi*x[0])*sin(pi*x[1]),
+    #      sin(pi*x[0])*sin(pi*x[1])]
+
+    # p = []
+    # p += [0]
+    # for i in range(1, A+1):
+    #     p += [-(i)*sin(pi*x[0])*sin(pi*x[1])]
 
 
     d = len(u)
@@ -163,15 +163,9 @@ def single_run(n=8, M=8, theta=1.0):
     problem.displacement_nullspace = False
 
     sigma_tuple = tuple(tuple(i) for i in sigma)
-
-    # stress_ex = Expression(sigma_tuple, t=time, degree=3)
-    # problem.s = Expression(("2*mu*(3.14159265358979*sin(3.14159265358979*x[1])*cos(3.14159265358979*x[0])) + 3.0*sin(3.14159265358979*x[0])*sin(3.14159265358979*x[1]) + 2.7149566142134*sin(3.14159265358979*x[0] + 3.14159265358979*x[1])",\
-    #                         "2*mu*(1.5707963267949*sin(3.14159265358979*x[0])*cos(3.14159265358979*x[1]) + 1.5707963267949*sin(3.14159265358979*x[1])*cos(3.14159265358979*x[0]))"), mu=mu, degree=3)
-
     
-    sigma_ex = Expression(sigma_tuple, degree=3)
-    print(sigma_tuple[0])
-    problem.s = Expression(sigma_tuple[0], degree=3)
+    sigma_ex = Expression(sigma_tuple, t=time, degree=3)
+    problem.s = sigma_ex*normal
 
 
 
@@ -283,7 +277,7 @@ def convergence_exp(theta):
 notpipelines = pytest.mark.notpipelines
 @notpipelines
 def test_convergence():
-    # convergence_exp(0.5)
+    convergence_exp(0.5)
     convergence_exp(1.0)
 
 if __name__ == "__main__":
