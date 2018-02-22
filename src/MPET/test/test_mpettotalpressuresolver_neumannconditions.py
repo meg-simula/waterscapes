@@ -94,7 +94,7 @@ def exact_solutions(params):
     #I = Identity(d)
     p0I = [[0]*i + [p[0]] + [0]*(d-i-1) for i in range(d)]
     # print(p0I)
-    sigma = sigma_ast + p0I 
+    sigma = [[2*mu*eps_u[i][j] + p0I[i][j] for j in range(d)] for i in range(d)] 
     # print(sigma)
 
     div_sigma_ast = [sum([diff(sigma_ast[i][j], x[j]) for j in range(d)])
@@ -124,11 +124,8 @@ def exact_solutions(params):
     p_str = [sympy.printing.ccode(p[i]) for i in range(A+1)]
     f_str = [sympy.printing.ccode(f[i]) for i in range(d)]
     g_str = [sympy.printing.ccode(g[i]) for i in range(A)]
+    sigma_str = [[sympy.printing.ccode(sigma[i][j]) for i in range(d)] for j in range(d)]
 
-    sigma_str = [[0]*d]*d
-    for i in range(d):
-        for j in range(d):
-            sigma_str[i][j] = sympy.printing.ccode(sigma[i][j])
     
     return (u_str, p_str, f_str, g_str, sigma_str)
     
@@ -168,8 +165,15 @@ def single_run(n=8, M=8, theta=1.0):
     sigma_tuple = tuple(tuple(i) for i in sigma)
 
     # stress_ex = Expression(sigma_tuple, t=time, degree=3)
-    problem.s = Expression(("2*mu*(3.14159265358979*sin(3.14159265358979*x[1])*cos(3.14159265358979*x[0])) + 3.0*sin(3.14159265358979*x[0])*sin(3.14159265358979*x[1]) + 2.7149566142134*sin(3.14159265358979*x[0] + 3.14159265358979*x[1])",\
-                            "2*mu*(1.5707963267949*sin(3.14159265358979*x[0])*cos(3.14159265358979*x[1]) + 1.5707963267949*sin(3.14159265358979*x[1])*cos(3.14159265358979*x[0]))"), mu=mu, degree=3)
+    # problem.s = Expression(("2*mu*(3.14159265358979*sin(3.14159265358979*x[1])*cos(3.14159265358979*x[0])) + 3.0*sin(3.14159265358979*x[0])*sin(3.14159265358979*x[1]) + 2.7149566142134*sin(3.14159265358979*x[0] + 3.14159265358979*x[1])",\
+    #                         "2*mu*(1.5707963267949*sin(3.14159265358979*x[0])*cos(3.14159265358979*x[1]) + 1.5707963267949*sin(3.14159265358979*x[1])*cos(3.14159265358979*x[0]))"), mu=mu, degree=3)
+
+    
+    sigma_ex = Expression(sigma_tuple, degree=3)
+    print(sigma_tuple[0])
+    problem.s = Expression(sigma_tuple[0], degree=3)
+
+
 
     p_ex = [Expression(p_e[i], t=time, degree=3) for i in range(A+1)]
     problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1,A+1)]
