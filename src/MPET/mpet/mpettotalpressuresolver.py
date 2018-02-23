@@ -392,11 +392,10 @@ class MPETTotalPressureSolver(object):
 
             # Apply boundary conditions            
             for bc in bcs:
-                bc.apply(b)    
-                bc.apply(A)
+                bc.apply(A, b)
 
             # Solve
-            self.niter = solver.solve(A, self.up.vector(), b)
+            solver.solve(A, self.up.vector(), b)
 
             # Yield solution and time
             yield self.up, float(time)
@@ -429,8 +428,7 @@ class MPETTotalPressureSolver(object):
         [bcs0, bcs1] = self.create_dirichlet_bcs()
         bcs = bcs0 + bcs1
         
-        # Assemble left-hand side matrix
-                
+        # Assemble left-hand side matrix 
         A = assemble(a)  
 
         for L2i in L2: 
@@ -438,26 +436,27 @@ class MPETTotalPressureSolver(object):
             A.axpy(1.0, A2, False)
         
         # Create solver
-        PP, _ = assemble_system(P, L, bcs)
+        PP = assemble(P)
+        for bc in bcs:
+            apply_symmetric(bc, PP)
+
         solver = PETScKrylovSolver("minres", "hypre_amg")
-        # solver.parameters.update(self.params["krylov_solver"])
-        solver.set_operators(A, PP)
         
         if self.params["testing"]:
             # print "eigenvalue problem"
-            eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
-            eigensolver.parameters['tolerance'] = 1e-6
-            eigensolver.parameters['maximum_iterations'] = 10000
+            # eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
+            # eigensolver.parameters['tolerance'] = 1e-6
+            # eigensolver.parameters['maximum_iterations'] = 10000
 
-            eigensolver.parameters['spectrum'] = 'largest magnitude'
-            eigensolver.solve(1)
-            emax = eigensolver.get_eigenvalue(0)
-            eigensolver.parameters['spectrum'] = 'smallest magnitude'
-            eigensolver.solve(1)
-            emin = eigensolver.get_eigenvalue(0)
-            # print "emax = ", emax
-            # print "emin = ", emin 
-            self.condition_number = sqrt(emax[0]**2 + emax[1]**2)/sqrt(emin[0]**2 + emin[1]**2)
+            # eigensolver.parameters['spectrum'] = 'largest magnitude'
+            # eigensolver.solve(1)
+            # emax = eigensolver.get_eigenvalue(0)
+            # eigensolver.parameters['spectrum'] = 'smallest magnitude'
+            # eigensolver.solve(1)
+            # emin = eigensolver.get_eigenvalue(0)
+            # # print "emax = ", emax
+            # # print "emin = ", emin 
+            # self.condition_number = sqrt(emax[0]**2 + emax[1]**2)/sqrt(emin[0]**2 + emin[1]**2)
 
             self.up.vector()[:] = random.randn(self.up.vector().array().size)
         else:        
@@ -500,8 +499,8 @@ class MPETTotalPressureSolver(object):
                 apply_symmetric(bc, Acopy, b)
 
             # Solve
-            self.niter = solver.solve(Acopy, self.up.vector(), b)
-
+            solver.set_operators(Acopy, PP)
+            self.niter = solver.solve(self.up.vector(), b)
             # Yield solution and time
             yield self.up, float(time)
             # Update previous solution up_ with current solution up
