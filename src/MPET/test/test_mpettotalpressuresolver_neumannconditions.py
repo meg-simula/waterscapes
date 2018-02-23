@@ -47,15 +47,6 @@ def exact_solutions(params):
     x = sympy.symbols(("x[0]", "x[1]"))
     t = sympy.symbols("t")
 
-    # Define exact solutions u and p
-    # u = [x[0]*x[1]*x[1],
-    #      x[1]*x[1]*x[1]]
-
-    # p = []
-    # p += [0]
-    # for i in range(1, A+1):
-    #     p += [-(i)*x[0]]
-
     u = [sin(2.0*pi*x[0] + pi/2.0)*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t + t),
          sin(2.0*pi*x[0] + pi/2.0)*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t + t)]
 
@@ -63,15 +54,6 @@ def exact_solutions(params):
     p += [0]
     for i in range(1, A+1):
         p += [-(i)*sin(2.0*pi*x[0] + pi/2.0 )*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t + t)]
-
-    # u = [sin(pi*x[0])*sin(pi*x[1]),
-    #      sin(pi*x[0])*sin(pi*x[1])]
-
-    # p = []
-    # p += [0]
-    # for i in range(1, A+1):
-    #     p += [-(i)*sin(pi*x[0])*sin(pi*x[1])]
-
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
@@ -164,7 +146,7 @@ def single_run(n=8, M=8, theta=1.0):
 
     sigma_tuple = tuple(tuple(i) for i in sigma)
     
-    sigma_ex = Expression(sigma_tuple, t=time, degree=3)
+    sigma_ex = Expression(sigma_tuple, t=time, degree=4)
     problem.s = sigma_ex*normal
 
 
@@ -176,6 +158,7 @@ def single_run(n=8, M=8, theta=1.0):
     on_boundary = CompiledSubDomain("on_boundary")
     right = Right()
     on_boundary.mark(problem.momentum_boundary_markers, 0)
+    #Right edge is Neumann boundary
     right.mark(problem.momentum_boundary_markers, 1)
 
     for i in range(A):
@@ -195,15 +178,12 @@ def single_run(n=8, M=8, theta=1.0):
         assign(solver.up_.sub(i+1), interpolate(p_ex[i], Q))
     
     # Solve
-    solutions = solver.solve_direct()
+    solutions = solver.solve()
     for (up, t) in solutions:
         info("t = %g" % t)
     len(up)
     # from IPython import embed; embed()
     (u, p0, p1, p2) = up.split()
-
-    File("u_s.pvd")<<u
-    File("u_exact.pvd")<<interpolate(problem.u_bar, V)
 
     p = (p1, p2)
     u_err_L2 = errornorm(problem.u_bar, u, "L2", degree_rise=5)

@@ -327,113 +327,6 @@ class MPETTotalPressureSolver(object):
         
         return F, L0, L1, L2, P, up_, up
 
-
-    def solve(self):
-        """Solve given MPET problem, yield solutions at each time step.
-
-        Assumptions:
-        - Users should set self.up_ to be the initial conditions for up;
-        """
-        
-        dt = self.params["dt"]
-        T = self.params["T"]
-        theta = self.params["theta"]
-        time = self.problem.time
-
-        # Extract lhs a and implicitly time-dependent rhs L
-        (a, L) = system(self.F)
-        L0 = self.L0
-        L1 = self.L1
-        L2 = self.L2
-        P = self.P
-        # Extract essential bcs
-        [bcs0, bcs1] = self.create_dirichlet_bcs()
-        bcs = bcs0 + bcs1
-        
-        # Assemble left-hand side matrix
-                
-        A = assemble(a)  
-
-        for L2i in L2: 
-            A2 = assemble(lhs(L2i))  
-            A.axpy(1.0, A2, False)
-        
-        # Create solver
-        if self.params["direct_solver"]:
-            solver = LUSolver(A)
-            self.up.assign(self.up_)
-        else:
-            PP, _ = assemble_system(P, L, bcs)
-            solver = PETScKrylovSolver("minres", "hypre_amg")
-            # solver.parameters.update(self.params["krylov_solver"])
-            solver.set_operators(A, PP)
-            
-            if self.params["testing"]:
-                # print "eigenvalue problem"
-                eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
-                eigensolver.parameters['tolerance'] = 1e-6
-                eigensolver.parameters['maximum_iterations'] = 10000
-
-                eigensolver.parameters['spectrum'] = 'largest magnitude'
-                eigensolver.solve(1)
-                emax = eigensolver.get_eigenvalue(0)
-                eigensolver.parameters['spectrum'] = 'smallest magnitude'
-                eigensolver.solve(1)
-                emin = eigensolver.get_eigenvalue(0)
-                # print "emax = ", emax
-                # print "emin = ", emin 
-                self.condition_number = sqrt(emax[0]**2 + emax[1]**2)/sqrt(emin[0]**2 + emin[1]**2)
-
-                self.up.vector()[:] = random.randn(self.up.vector().array().size)
-            else:        
-                # Start with up as up_, can help Krylov Solvers
-                self.up.assign(self.up_)
-
-        while (float(time) < (T - 1.e-9)):
-
-            # Handle the different parts of the rhs a bit differently
-            # due to theta-scheme
-            b = assemble(L)  
-
-            # Handle the different parts of the rhs a bit differently
-            # due to theta-scheme
-            # Set t_theta to t + dt (when theta = 1.0) or t + 1/2 dt
-            # (when theta = 0.5)
-            t_theta = float(time) + theta*float(dt)
-            time.assign(t_theta)                
-            # Assemble time-dependent rhs for parabolic equations
-            for L1i in L1: 
-                b1 = assemble(L1i)  
-                b.axpy(1.0, b1)
-            
-            for L2i in L2: 
-                b2 = assemble(rhs(L2i))
-                b.axpy(1.0, b2)    
-            # Set t to "t"
-            t = float(time) + (1.0 - theta)*float(dt)
-            time.assign(t)
-            
-            # Assemble time-dependent rhs for elliptic equations
-            b0 = assemble(L0)
-            b.axpy(1.0, b0)
-
-
-            # Apply boundary conditions            
-            for bc in bcs:
-                bc.apply(b)    
-                apply_symmetric(bc, A, b)
-
-            # Solve
-            self.niter = solver.solve(A, self.up.vector(), b)
-
-            # Yield solution and time
-            yield self.up, float(time)
-            # Update previous solution up_ with current solution up
-            self.up_.assign(self.up)
-
-            # Update time
-            time.assign(t)
-
     def solve_direct(self):
         """Solve given MPET problem, yield solutions at each time step.
 
@@ -512,3 +405,115 @@ class MPETTotalPressureSolver(object):
 
             # Update time
             time.assign(t)
+
+
+    def solve_iterative(self):
+        """Solve given MPET problem, yield solutions at each time step.
+
+        Assumptions:
+        - Users should set self.up_ to be the initial conditions for up;
+        """
+        
+        dt = self.params["dt"]
+        T = self.params["T"]
+        theta = self.params["theta"]
+        time = self.problem.time
+
+        # Extract lhs a and implicitly time-dependent rhs L
+        (a, L) = system(self.F)
+        L0 = self.L0
+        L1 = self.L1
+        L2 = self.L2
+        P = self.P
+        # Extract essential bcs
+        [bcs0, bcs1] = self.create_dirichlet_bcs()
+        bcs = bcs0 + bcs1
+        
+        # Assemble left-hand side matrix
+                
+        A = assemble(a)  
+
+        for L2i in L2: 
+            A2 = assemble(lhs(L2i))  
+            A.axpy(1.0, A2, False)
+        
+        # Create solver
+        PP, _ = assemble_system(P, L, bcs)
+        solver = PETScKrylovSolver("minres", "hypre_amg")
+        # solver.parameters.update(self.params["krylov_solver"])
+        solver.set_operators(A, PP)
+        
+        if self.params["testing"]:
+            # print "eigenvalue problem"
+            eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
+            eigensolver.parameters['tolerance'] = 1e-6
+            eigensolver.parameters['maximum_iterations'] = 10000
+
+            eigensolver.parameters['spectrum'] = 'largest magnitude'
+            eigensolver.solve(1)
+            emax = eigensolver.get_eigenvalue(0)
+            eigensolver.parameters['spectrum'] = 'smallest magnitude'
+            eigensolver.solve(1)
+            emin = eigensolver.get_eigenvalue(0)
+            # print "emax = ", emax
+            # print "emin = ", emin 
+            self.condition_number = sqrt(emax[0]**2 + emax[1]**2)/sqrt(emin[0]**2 + emin[1]**2)
+
+            self.up.vector()[:] = random.randn(self.up.vector().array().size)
+        else:        
+            # Start with up as up_, can help Krylov Solvers
+            self.up.assign(self.up_)
+
+        while (float(time) < (T - 1.e-9)):
+
+            # Handle the different parts of the rhs a bit differently
+            # due to theta-scheme
+            b = assemble(L)  
+
+            # Handle the different parts of the rhs a bit differently
+            # due to theta-scheme
+            # Set t_theta to t + dt (when theta = 1.0) or t + 1/2 dt
+            # (when theta = 0.5)
+            t_theta = float(time) + theta*float(dt)
+            time.assign(t_theta)                
+            # Assemble time-dependent rhs for parabolic equations
+            for L1i in L1: 
+                b1 = assemble(L1i)  
+                b.axpy(1.0, b1)
+            
+            for L2i in L2: 
+                b2 = assemble(rhs(L2i))
+                b.axpy(1.0, b2)    
+            # Set t to "t"
+            t = float(time) + (1.0 - theta)*float(dt)
+            time.assign(t)
+            
+            # Assemble time-dependent rhs for elliptic equations
+            b0 = assemble(L0)
+            b.axpy(1.0, b0)
+
+
+            # Apply boundary conditions            
+            for bc in bcs:
+                bc.apply(b)    
+                apply_symmetric(bc, A, b)
+
+            # Solve
+            self.niter = solver.solve(A, self.up.vector(), b)
+
+            # Yield solution and time
+            yield self.up, float(time)
+            # Update previous solution up_ with current solution up
+            self.up_.assign(self.up)
+
+            # Update time
+            time.assign(t)
+
+
+    def solve(self):
+        if self.params["direct_solver"]:
+            return self.solve_direct()
+        else:
+            return self.solve_iterative()
+
+
