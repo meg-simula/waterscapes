@@ -465,6 +465,7 @@ class MPETTotalPressureSolver(object):
             self.up.assign(self.up_)
 
         while (float(time) < (T - 1.e-9)):
+            Acopy = A.copy()
 
             # Handle the different parts of the rhs a bit differently
             # due to theta-scheme
@@ -496,10 +497,10 @@ class MPETTotalPressureSolver(object):
             # Apply boundary conditions            
             for bc in bcs:
                 bc.apply(b)    
-                apply_symmetric(bc, A, b)
+                apply_symmetric(bc, Acopy, b)
 
             # Solve
-            self.niter = solver.solve(A, self.up.vector(), b)
+            self.niter = solver.solve(Acopy, self.up.vector(), b)
 
             # Yield solution and time
             yield self.up, float(time)
