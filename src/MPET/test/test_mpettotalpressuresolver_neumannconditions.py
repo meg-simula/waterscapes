@@ -47,13 +47,13 @@ def exact_solutions(params):
     x = sympy.symbols(("x[0]", "x[1]"))
     t = sympy.symbols("t")
 
-    u = [sin(2.0*pi*x[0] + pi/2.0)*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t + t),
-         sin(2.0*pi*x[0] + pi/2.0)*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t + t)]
+    u = [sin(2.0*pi*x[0] + pi/2.0)*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t),
+         sin(2.0*pi*x[0] + pi/2.0)*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t)]
 
     p = []
     p += [0]
     for i in range(1, A+1):
-        p += [-(i)*sin(2.0*pi*x[0] + pi/2.0 )*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t + t)]
+        p += [-(i)*sin(2.0*pi*x[0] + pi/2.0 )*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t)]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
@@ -73,17 +73,11 @@ def exact_solutions(params):
 
     sigma_ast = [[2*mu*eps_u[i][j] for j in range(d)] for i in range(d)]
 
-    #I = Identity(d)
     p0I = [[0]*i + [p[0]] + [0]*(d-i-1) for i in range(d)]
-    # print(p0I)
     sigma = [[2*mu*eps_u[i][j] + p0I[i][j] for j in range(d)] for i in range(d)] 
-    # print(sigma)
 
     div_sigma_ast = [sum([diff(sigma_ast[i][j], x[j]) for j in range(d)])
                      for i in range(d)]
-
-    # for i in range(d):
-    #     sigma_ast[i][i] += lmbda*div_u
 
     # Compute f
     div_sigma_ast = [sum([diff(sigma_ast[i][j], x[j]) for j in range(d)])
@@ -165,7 +159,7 @@ def single_run(n=8, M=8, theta=1.0):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
-    params = dict(dt=dt, theta=theta, T= T, testing=False, direct_solver=False)
+    params = dict(dt=dt, theta=theta, T= T, testing=False, direct_solver=True)
     solver = MPETTotalPressureSolver(problem, params)
 
     # Set initial conditions

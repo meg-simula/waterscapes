@@ -443,7 +443,7 @@ class MPETTotalPressureSolver(object):
         solver = PETScKrylovSolver("minres", "hypre_amg")
         
         if self.params["testing"]:
-            print "eigenvalue problem"
+            print("eigenvalue problem")
             eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
             eigensolver.parameters['tolerance'] = 1e-6
             eigensolver.parameters['maximum_iterations'] = 10000

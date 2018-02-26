@@ -43,11 +43,11 @@ def exact_solutions(params):
     t = sympy.symbols("t")
 
     # Define exact solutions u and p
-    u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0),
-         sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+    u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t),
+         sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t)]
     p = []
     for i in range(A):
-        p += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+        p += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t)]
 
     # Simplify symbolics 
     d = len(u)
@@ -143,10 +143,10 @@ def single_run(n=8, M=8, theta=1.0):
 
     (u, p0, p1) = up.split()
     p = (p0, p1)
-    u_err_L2 = errornorm(problem.u_bar, u, "L2")
-    u_err_H1 = errornorm(problem.u_bar, u, "H1")
-    p_err_L2 = [errornorm(problem.p_bar[i], p[i], "L2") for i in range(A)]
-    p_err_H1 = [errornorm(problem.p_bar[i], p[i], "H1") for i in range(A)]
+    u_err_L2 = errornorm(problem.u_bar, u, "L2", degree_rise=5)
+    u_err_H1 = errornorm(problem.u_bar, u, "H1", degree_rise=5)
+    p_err_L2 = [errornorm(problem.p_bar[i], p[i], "L2", degree_rise=5) for i in range(A)]
+    p_err_H1 = [errornorm(problem.p_bar[i], p[i], "H1", degree_rise=5) for i in range(A)]
 
     h = mesh.hmin()
     return (u_err_L2, u_err_H1, p_err_L2, p_err_H1, h)
