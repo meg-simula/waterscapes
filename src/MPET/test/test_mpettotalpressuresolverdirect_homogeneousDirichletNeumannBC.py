@@ -103,7 +103,7 @@ def exact_solutions(params):
     sigma_str = [[sympy.printing.ccode(sigma[i][j]) for i in range(d)] for j in range(d)]
 
     
-    return (u_str, p_str, f_str, g_str)
+    return (u_str, p_str, f_str, g_str, sigma_str)
     
 def single_run(n=8, M=8, theta=1.0):
 
@@ -126,7 +126,7 @@ def single_run(n=8, M=8, theta=1.0):
     params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
 
     info("Deriving exact solutions")
-    u_e, p_e, f, g = exact_solutions(params)
+    u_e, p_e, f, g, sigma = exact_solutions(params)
 
     info("Setting up MPET problem")
     mesh = UnitSquareMesh(n, n)
@@ -138,12 +138,22 @@ def single_run(n=8, M=8, theta=1.0):
     problem.u_bar = Expression(u_e, t=time, degree=3)
     problem.displacement_nullspace = False
 
+    sigma_tuple = tuple(tuple(i) for i in sigma)
+    
+    sigma_ex = Expression(sigma_tuple, t=time, degree=4)
+    problem.s = sigma_ex*normal
+
+
+
     p_ex = [Expression(p_e[i], t=time, degree=3) for i in range(A+1)]
     problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1,A+1)]
 
     # Apply Dirichlet conditions everywhere (indicated by the zero marker)
     on_boundary = CompiledSubDomain("on_boundary")
+    right = Right()
     on_boundary.mark(problem.momentum_boundary_markers, 0)
+    #Right edge is Neumann boundary
+    right.mark(problem.momentum_boundary_markers, 1)
 
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)

@@ -92,7 +92,7 @@ def single_run(n=8, M=8, theta=1.0):
     "N is t_he mesh size, M the number of time steps."
     
     # Define end time T and timestep dt
-    T = 0.5
+    T = 1.0
     dt = float(T/M)
 
     # Define material parameters in MPET equations
