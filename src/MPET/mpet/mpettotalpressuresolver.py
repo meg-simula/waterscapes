@@ -443,20 +443,18 @@ class MPETTotalPressureSolver(object):
         solver = PETScKrylovSolver("minres", "hypre_amg")
         
         if self.params["testing"]:
-            # print "eigenvalue problem"
-            # eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
-            # eigensolver.parameters['tolerance'] = 1e-6
-            # eigensolver.parameters['maximum_iterations'] = 10000
+            print "eigenvalue problem"
+            eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
+            eigensolver.parameters['tolerance'] = 1e-6
+            eigensolver.parameters['maximum_iterations'] = 10000
 
-            # eigensolver.parameters['spectrum'] = 'largest magnitude'
-            # eigensolver.solve(1)
-            # emax = eigensolver.get_eigenvalue(0)
-            # eigensolver.parameters['spectrum'] = 'smallest magnitude'
-            # eigensolver.solve(1)
-            # emin = eigensolver.get_eigenvalue(0)
-            # # print "emax = ", emax
-            # # print "emin = ", emin 
-            # self.condition_number = sqrt(emax[0]**2 + emax[1]**2)/sqrt(emin[0]**2 + emin[1]**2)
+            eigensolver.parameters['spectrum'] = 'largest magnitude'
+            eigensolver.solve(1)
+            emax = eigensolver.get_eigenvalue(0)
+            eigensolver.parameters['spectrum'] = 'smallest magnitude'
+            eigensolver.solve(1)
+            emin = eigensolver.get_eigenvalue(0)
+            self.condition_number = sqrt(emax[0]**2 + emax[1]**2)/sqrt(emin[0]**2 + emin[1]**2)
 
             self.up.vector()[:] = random.randn(self.up.vector().array().size)
         else:        
