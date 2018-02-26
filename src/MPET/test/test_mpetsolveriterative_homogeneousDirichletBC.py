@@ -124,7 +124,7 @@ def single_run(n=8, M=8, theta=1.0):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
-    params = dict(dt=dt, theta=theta, T=T, direct_solver=True)
+    params = dict(dt=dt, theta=theta, T=T, direct_solver=False)
     solver = MPETSolver(problem, params)
 
     # Set initial conditions

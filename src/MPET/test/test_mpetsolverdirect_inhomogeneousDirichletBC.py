@@ -43,11 +43,11 @@ def exact_solutions(params):
     t = sympy.symbols("t")
 
     # Define exact solutions u and p
-    u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t),
-         sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t)]
+    u = [sin(2*pi*x[0] + pi/2.0)*sin(2*pi*x[1] + pi/2.0)*sin(omega*t),
+         sin(2*pi*x[0] + pi/2.0)*sin(2*pi*x[1] + pi/2.0)*sin(omega*t)]
     p = []
     for i in range(A):
-        p += [-(i+1)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t)]
+        p += [-(i+1)*sin(2*pi*x[0] + pi/2.0)*sin(2*pi*x[1] + pi/2.0)*sin(omega*t)]
 
     # Simplify symbolics 
     d = len(u)
@@ -92,7 +92,7 @@ def single_run(n=8, M=8, theta=1.0):
     "N is t_he mesh size, M the number of time steps."
     
     # Define end time T and timestep dt
-    T = 0.5
+    T = 1.0
     dt = float(T/M)
 
     # Define material parameters in MPET equations
@@ -202,7 +202,7 @@ def convergence_exp(theta):
 
     # Test that convergence rates are in agreement with theoretical
     # expectation asymptotically
-    assert (u_ratesH1[-1] > 1.95), "H1 convergence in u failed"
+    assert (u_ratesH1[-1] > 1.90), "H1 convergence in u failed"
     assert (u_ratesL2[-1] > 1.90), "L2 convergence in u failed"
     assert (p0_ratesL2[-1] > 1.90), "L2 convergence in p0 failed"
     assert (p1_ratesL2[-1] > 1.90), "L2 convergence in p1 failed"
