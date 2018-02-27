@@ -14,3 +14,4 @@ export PYTHONPATH=`pwd`:$PYTHONPATH
 
 # Alternatively use pip to do an editable install in this folder
 pip install -e .
+
