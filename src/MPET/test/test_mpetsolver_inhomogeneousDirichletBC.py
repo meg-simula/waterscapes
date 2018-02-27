@@ -151,7 +151,7 @@ def single_run(n=8, M=8, theta=1.0, direct_solver=True):
     h = mesh.hmin()
     return (u_err_L2, u_err_H1, p_err_L2, p_err_H1, h)
     
-def convergence_exp(theta):
+def convergence_exp(theta, direct_solver):
     import time
     
     # Remove all output from FEniCS (except errors)
