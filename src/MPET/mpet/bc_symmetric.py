@@ -1,13 +1,14 @@
-# Set boundary conditions and eliminate excess dofs
+# Set boundary conditions in a symmetric fashion and eliminate excess dofs
 from numpy import array
 from dolfin import *
+
+#getting the dofs associated to DirichletBC
 def get_bc_dofs(bc):
     from numpy import intc
     return array(list(bc.get_boundary_values().keys()), dtype = intc)
 
+#Eliminate rows and colums associated to Dirichlet dofs and modifies rhs accordingly
 def zero_rows_cols(dofs, A, b = None):
-    # import pdb; pdb.set_trace()  
-    # from IPython import embed; embed()  
     amat = as_backend_type(A).mat()
 
     if b is None:
