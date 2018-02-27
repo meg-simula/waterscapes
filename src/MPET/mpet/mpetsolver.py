@@ -164,10 +164,6 @@ class MPETSolver(object):
         params.add("direct_solver", True)
         params.add("stabilization", False)
         params.add("testing", False)
-        #params.add(KrylovSolver.default_parameters())
-        #params.add(LUSolver.default_parameters())
-        #params.add("fieldsplit", False)
-        #params.add("symmetric", False)
         return params
 
     def create_variational_forms(self):
