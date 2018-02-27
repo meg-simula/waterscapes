@@ -11,3 +11,7 @@ python setup.py install --user
 # If you don't want to install globally, just add mpet to your
 # PYTHONPATH via:
 export PYTHONPATH=`pwd`:$PYTHONPATH
+
+# Alternatively use pip to do an editable install in this folder
+pip install -e .
+

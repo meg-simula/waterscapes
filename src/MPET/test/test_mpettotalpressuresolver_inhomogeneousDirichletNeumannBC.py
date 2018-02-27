@@ -5,11 +5,16 @@ __all__ = []
 
 import pytest
 from mpet import *
+set_log_level(0)
 
 # Turn on FEniCS optimizations
 parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
+
+class Right(SubDomain):
+        def inside(self, x, on_boundary):
+            return on_boundary and near(x[0], 1) 
 
 def convergence_rates(errors, hs):
     import math
@@ -42,14 +47,13 @@ def exact_solutions(params):
     x = sympy.symbols(("x[0]", "x[1]"))
     t = sympy.symbols("t")
 
-    # Define exact solutions u and p
-    u = [sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0),
-         sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+    u = [sin(2.0*pi*x[0] + pi/2.0)*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t + t),
+         sin(2.0*pi*x[0] + pi/2.0)*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t + t)]
 
     p = []
     p += [0]
     for i in range(1, A+1):
-        p += [-(i)*sin(2*pi*x[0])*sin(2*pi*x[1])*sin(omega*t + 1.0)]
+        p += [-(i)*sin(2.0*pi*x[0] + pi/2.0 )*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t + t)]
 
     d = len(u)
     div_u = sum([diff(u[i], x[i]) for i in range(d)])
@@ -69,11 +73,11 @@ def exact_solutions(params):
 
     sigma_ast = [[2*mu*eps_u[i][j] for j in range(d)] for i in range(d)]
 
+    p0I = [[0]*i + [p[0]] + [0]*(d-i-1) for i in range(d)]
+    sigma = [[2*mu*eps_u[i][j] + p0I[i][j] for j in range(d)] for i in range(d)] 
+
     div_sigma_ast = [sum([diff(sigma_ast[i][j], x[j]) for j in range(d)])
                      for i in range(d)]
-
-    # for i in range(d):
-    #     sigma_ast[i][i] += lmbda*div_u
 
     # Compute f
     div_sigma_ast = [sum([diff(sigma_ast[i][j], x[j]) for j in range(d)])
@@ -96,10 +100,12 @@ def exact_solutions(params):
     p_str = [sympy.printing.ccode(p[i]) for i in range(A+1)]
     f_str = [sympy.printing.ccode(f[i]) for i in range(d)]
     g_str = [sympy.printing.ccode(g[i]) for i in range(A)]
+    sigma_str = [[sympy.printing.ccode(sigma[i][j]) for i in range(d)] for j in range(d)]
+
     
-    return (u_str, p_str, f_str, g_str)
+    return (u_str, p_str, f_str, g_str, sigma_str)
     
-def single_run(n=8, M=8, theta=1.0):
+def single_run(n=8, M=8, theta=1.0, direct_solver=True):
 
     "N is the mesh size, M the number of time steps."
     
@@ -115,31 +121,45 @@ def single_run(n=8, M=8, theta=1.0):
     S = ((1.0, 1.0), (1.0, 1.0))
     E = 1.0
     nu = 0.35
+    mu = E/(2.0*(1.0+nu))
+
     params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
 
     info("Deriving exact solutions")
-    u_e, p_e, f, g = exact_solutions(params)
+    u_e, p_e, f, g, sigma = exact_solutions(params)
 
     info("Setting up MPET problem")
     mesh = UnitSquareMesh(n, n)
+    normal = FacetNormal(mesh)
     time = Constant(0.0)
     problem = MPETProblem(mesh, time, params=params)
     problem.f = Expression(f, t=time, degree=3)
     problem.g = [Expression(g[i], t=time, degree=3) for i in range(A)]
     problem.u_bar = Expression(u_e, t=time, degree=3)
+    problem.displacement_nullspace = False
 
-    problem.u_nullspace=False
+    sigma_tuple = tuple(tuple(i) for i in sigma)
+    
+    sigma_ex = Expression(sigma_tuple, t=time, degree=4)
+    problem.s = sigma_ex*normal
+
+
+
     p_ex = [Expression(p_e[i], t=time, degree=3) for i in range(A+1)]
     problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1,A+1)]
 
     # Apply Dirichlet conditions everywhere (indicated by the zero marker)
     on_boundary = CompiledSubDomain("on_boundary")
+    right = Right()
     on_boundary.mark(problem.momentum_boundary_markers, 0)
+    #Right edge is Neumann boundary
+    right.mark(problem.momentum_boundary_markers, 1)
+
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
-    params = dict(dt=dt, theta=theta, T=T, direct_solver=False)
+    params = dict(dt=dt, theta=theta, T= T, testing=False, direct_solver=direct_solver)
     solver = MPETTotalPressureSolver(problem, params)
 
     # Set initial conditions
@@ -155,8 +175,10 @@ def single_run(n=8, M=8, theta=1.0):
     solutions = solver.solve()
     for (up, t) in solutions:
         info("t = %g" % t)
-
+    len(up)
+    # from IPython import embed; embed()
     (u, p0, p1, p2) = up.split()
+
     p = (p1, p2)
     u_err_L2 = errornorm(problem.u_bar, u, "L2", degree_rise=5)
     u_err_H1 = errornorm(problem.u_bar, u, "H1", degree_rise=5)
@@ -165,7 +187,7 @@ def single_run(n=8, M=8, theta=1.0):
     h = mesh.hmin()
     return (u_err_L2, u_err_H1, p_err_L2, p_err_H1, h)
     
-def convergence_exp(theta):
+def convergence_exp(theta, direct_solver):
     import time
     
     # Remove all output from FEniCS (except errors)
@@ -189,7 +211,7 @@ def convergence_exp(theta):
 
     for (n, m) in zip(ns, ms):
         print("(n, m) = ", (n, m))
-        (erruL2, erruH1, errpL2, errpH1, h) = single_run(n, m, theta)
+        (erruL2, erruH1, errpL2, errpH1, h) = single_run(n, m, theta, direct_solver)
         hs += [h]
         u_errorsL2 += [erruL2]
         u_errorsH1 += [erruH1]
@@ -197,6 +219,7 @@ def convergence_exp(theta):
             p_errorsL2[i] += [errpi]
         for (i, errpi) in enumerate(errpH1):
             p_errorsH1[i] += [errpi]
+
 
     # Compute convergence rates:
     u_ratesL2 = convergence_rates(u_errorsL2, hs)
@@ -218,16 +241,21 @@ def convergence_exp(theta):
 
     # Test that convergence rates are in agreement with theoretical
     # expectation asymptotically
-    assert (u_ratesH1[-1] > 1.95), "H1 convergence in u failed"
-    assert (u_ratesL2[-1] > 1.90), "H1 convergence in u failed"
-    assert (p0_ratesL2[-1] > 1.90), "L2 convergence in p0 failed"
-    assert (p1_ratesL2[-1] > 1.90), "L2 convergence in p1 failed"
+    assert (u_ratesL2[-1] > 1.70), "L2 convergence in u failed"
+    assert (u_ratesH1[-1] > 1.70), "H1 convergence in u failed"
+    assert (p0_ratesL2[-1] > 1.85), "L2 convergence in p0 failed"
+    assert (p1_ratesL2[-1] > 1.87), "L2 convergence in p1 failed"
     assert (p0_ratesH1[-1] > 0.95), "H1 convergence in p0 failed"
     assert (p1_ratesH1[-1] > 0.95), "H1 convergence in p1 failed"
 
+
 def test_convergence():
-    convergence_exp(0.5)
-    convergence_exp(1.0)
+    #test for direct_solver=True
+    convergence_exp(0.5, True)
+    convergence_exp(1.0, True)
+    #test for direct_solver=False
+    convergence_exp(0.5, False)
+    convergence_exp(1.0, False)
 
 if __name__ == "__main__":
 

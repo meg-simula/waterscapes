@@ -27,9 +27,7 @@ class MPETProblem(object):
         self.displacement_nullspace : boolean (True/False) if rigid motions should be eliminated
         self.pressure_nullspace : list of boolean (True/False) if constants should be eliminated
         """
-
         self.mesh = mesh
-
         # NB: Assumption that everything that depends on time does so
         # through this Constant time
         self.time = time

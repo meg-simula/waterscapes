@@ -6,6 +6,9 @@ from dolfin import *
 
 from mpet.rm_basis_L2 import rigid_motions
 
+from numpy import random
+
+from mpet.bc_symmetric import *
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
@@ -100,7 +103,7 @@ class MPETTotalPressureSolver(object):
     def __init__(self, problem, params=None):
         "Create solver with given MPET problem and parameters."
         self.problem = problem
-        self.niter = None 
+        self.condition_number = None
         # Update parameters if given
         self.params = self.default_params()
         if params is not None:
@@ -150,9 +153,9 @@ class MPETTotalPressureSolver(object):
         params.add("u_degree", 2)
         params.add("p_degree", 1)
         params.add("direct_solver", True)
+        params.add("testing", False)
         #params.add(KrylovSolver.default_parameters())
         #params.add(LUSolver.default_parameters())
-        #params.add("testing", False)
         #params.add("fieldsplit", False)
         #params.add("symmetric", False)
         return params
@@ -260,7 +263,6 @@ class MPETTotalPressureSolver(object):
 
         As = range(A)
 
-        #FIXME
         F = inner(2*mu*sym(grad(u)), sym(grad(v)))*dx() \
             + p[0]*div(v)*dx()\
             + (div(u) - 1./lmbda*sum([alpha[i]*p[i+1] for i in As]) -1./lmbda*p[0])*w[0]*dx()\
@@ -288,8 +290,8 @@ class MPETTotalPressureSolver(object):
             if not self.params["direct_solver"]:
                 # Since there are no bc on u I need to make the
                 # preconditioner pd adding a mass matrix
-                P += 1.0/volume*inner(u, v)*dx()
-                P += volume*sum(z[i]*r[i]*dx() for i in range(dimZ))
+                P += inner(u, v)*dx()
+                P += sum(z[i]*r[i]*dx() for i in range(dimZ))
 
         # Add orthogonality versus constants if nullspace for the
         # displacement
@@ -307,14 +309,14 @@ class MPETTotalPressureSolver(object):
         ROBIN_MARKER = 2
         markers = self.problem.momentum_boundary_markers
         dsm = Measure("ds", domain=mesh, subdomain_data=markers)
-        L0 = dot(f, v)*dx() + inner(s, v)*dsm(NEUMANN_MARKER)
+        L0 = dot(f, v)*dx() + dot(s, v)*dsm(NEUMANN_MARKER)
 
         # Add source and flux boundary conditions for continuity equations
         dsc = []
         L1 = []
         L2 = []
         for i in As:
-            markers = self.problem.continuity_boundary_markers[i-1]
+            markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
             L1 += [dt*g[i]*w[i+1]*dx() + dt*I[i]*w[i+1]*dsc[i](NEUMANN_MARKER)]
 
@@ -324,7 +326,7 @@ class MPETTotalPressureSolver(object):
         
         return F, L0, L1, L2, P, up_, up
 
-    def solve(self):
+    def solve_direct(self):
         """Solve given MPET problem, yield solutions at each time step.
 
         Assumptions:
@@ -348,53 +350,51 @@ class MPETTotalPressureSolver(object):
         
         # Assemble left-hand side matrix
                 
-        A, _ = assemble_system(a, L, bcs)  
+        A = assemble(a)  
 
         for L2i in L2: 
-            A2, _ = assemble_system(lhs(L2i), L, bcs)  
+            A2 = assemble(lhs(L2i))  
             A.axpy(1.0, A2, False)
         
         # Create solver
-        if self.params["direct_solver"]:
-            solver = LUSolver(A)
-        else:
-            PP, _ = assemble_system(P, L, bcs)
-            solver = PETScKrylovSolver("minres", "hypre_amg")
-            # solver.parameters.update(self.params["krylov_solver"])
-            solver.set_operators(A, PP)
-            
-        
-        # Start with up as up_, can help Krylov Solvers
+        solver = LUSolver(A)
         self.up.assign(self.up_)
 
         while (float(time) < (T - 1.e-9)):
 
             # Handle the different parts of the rhs a bit differently
             # due to theta-scheme
-            _, b = assemble_system(a, L, bcs)  
+            b = assemble(L)  
+
+            # Handle the different parts of the rhs a bit differently
+            # due to theta-scheme
             # Set t_theta to t + dt (when theta = 1.0) or t + 1/2 dt
             # (when theta = 0.5)
             t_theta = float(time) + theta*float(dt)
             time.assign(t_theta)                
             # Assemble time-dependent rhs for parabolic equations
             for L1i in L1: 
-                _, b1 = assemble_system(a, L1i, bcs)  
+                b1 = assemble(L1i)  
                 b.axpy(1.0, b1)
             
             for L2i in L2: 
-                _, b2 = assemble_system(a, rhs(L2i), bcs)
+                b2 = assemble(rhs(L2i))
                 b.axpy(1.0, b2)    
             # Set t to "t"
             t = float(time) + (1.0 - theta)*float(dt)
             time.assign(t)
             
             # Assemble time-dependent rhs for elliptic equations
-            _, b0 = assemble_system(a, L0, bcs)
+            b0 = assemble(L0)
             b.axpy(1.0, b0)
 
+
             # Apply boundary conditions            
+            for bc in bcs:
+                bc.apply(A, b)
+
             # Solve
-            self.niter = solver.solve(self.up.vector(), b)
+            solver.solve(A, self.up.vector(), b)
 
             # Yield solution and time
             yield self.up, float(time)
@@ -403,5 +403,114 @@ class MPETTotalPressureSolver(object):
 
             # Update time
             time.assign(t)
+
+
+    def solve_iterative(self):
+        """Solve given MPET problem, yield solutions at each time step.
+
+        Assumptions:
+        - Users should set self.up_ to be the initial conditions for up;
+        """
         
+        dt = self.params["dt"]
+        T = self.params["T"]
+        theta = self.params["theta"]
+        time = self.problem.time
+
+        # Extract lhs a and implicitly time-dependent rhs L
+        (a, L) = system(self.F)
+        L0 = self.L0
+        L1 = self.L1
+        L2 = self.L2
+        P = self.P
+        # Extract essential bcs
+        [bcs0, bcs1] = self.create_dirichlet_bcs()
+        bcs = bcs0 + bcs1
+        
+        # Assemble left-hand side matrix 
+        A = assemble(a)  
+
+        for L2i in L2: 
+            A2 = assemble(lhs(L2i))  
+            A.axpy(1.0, A2, False)
+        
+        # Create solver
+        PP = assemble(P)
+        for bc in bcs:
+            apply_symmetric(bc, PP)
+
+        solver = PETScKrylovSolver("minres", "hypre_amg")
+        
+        if self.params["testing"]:
+            print("eigenvalue problem")
+            eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
+            eigensolver.parameters['tolerance'] = 1e-6
+            eigensolver.parameters['maximum_iterations'] = 10000
+
+            eigensolver.parameters['spectrum'] = 'largest magnitude'
+            eigensolver.solve(1)
+            emax = eigensolver.get_eigenvalue(0)
+            eigensolver.parameters['spectrum'] = 'smallest magnitude'
+            eigensolver.solve(1)
+            emin = eigensolver.get_eigenvalue(0)
+            self.condition_number = sqrt(emax[0]**2 + emax[1]**2)/sqrt(emin[0]**2 + emin[1]**2)
+
+            self.up.vector()[:] = random.randn(self.up.vector().array().size)
+        else:        
+            # Start with up as up_, can help Krylov Solvers
+            self.up.assign(self.up_)
+
+        while (float(time) < (T - 1.e-9)):
+            Acopy = A.copy()
+
+            # Handle the different parts of the rhs a bit differently
+            # due to theta-scheme
+            b = assemble(L)  
+
+            # Handle the different parts of the rhs a bit differently
+            # due to theta-scheme
+            # Set t_theta to t + dt (when theta = 1.0) or t + 1/2 dt
+            # (when theta = 0.5)
+            t_theta = float(time) + theta*float(dt)
+            time.assign(t_theta)                
+            # Assemble time-dependent rhs for parabolic equations
+            for L1i in L1: 
+                b1 = assemble(L1i)  
+                b.axpy(1.0, b1)
+            
+            for L2i in L2: 
+                b2 = assemble(rhs(L2i))
+                b.axpy(1.0, b2)    
+            # Set t to "t"
+            t = float(time) + (1.0 - theta)*float(dt)
+            time.assign(t)
+            
+            # Assemble time-dependent rhs for elliptic equations
+            b0 = assemble(L0)
+            b.axpy(1.0, b0)
+
+
+            # Apply boundary conditions            
+            for bc in bcs:
+                bc.apply(b)    
+                apply_symmetric(bc, Acopy, b)
+
+            # Solve
+            solver.set_operators(Acopy, PP)
+            niter = solver.solve(self.up.vector(), b)
+            # Yield solution and time
+            yield self.up, float(time)
+            # Update previous solution up_ with current solution up
+            self.up_.assign(self.up)
+
+            # Update time
+            time.assign(t)
+
+
+    def solve(self):
+        if self.params["direct_solver"]:
+            return self.solve_direct()
+        else:
+            return self.solve_iterative()
+
 
