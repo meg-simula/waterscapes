@@ -109,7 +109,7 @@ def single_run(n=8, M=8, theta=1.0):
 
     # Define material parameters in MPET equations
     A = 2
-    c = (1.0, 1.0)
+    c = (0.0, 0.0)
     alpha = (1.0, 1.0)
     K = (1.0, 1.0)
     S = ((0.0, 0.0), (0.0, 0.0))
@@ -147,11 +147,13 @@ def single_run(n=8, M=8, theta=1.0):
         info("t = %g" % t)
 
     (u, p0, p1, p2) = up.split()
-    p = (p1, p2)
+    problem.p_bar = [Expression(p0_e, t=time, degree=3),] + \
+                    [Expression(p_e[a], t=time, degree=3) for a in range(A)]
+    p = (p0, p1, p2)
     u_err_L2 = errornorm(problem.u_bar, u, "L2")
     u_err_H1 = errornorm(problem.u_bar, u, "H1")
-    p_err_L2 = [errornorm(problem.p_bar[a], p[a], "L2") for a in range(A)]
-    p_err_H1 = [errornorm(problem.p_bar[a], p[a], "H1") for a in range(A)]
+    p_err_L2 = [errornorm(problem.p_bar[a], p[a], "L2") for a in range(A+1)]
+    p_err_H1 = [errornorm(problem.p_bar[a], p[a], "H1") for a in range(A+1)]
     h = mesh.hmin()
     return (u_err_L2, u_err_H1, p_err_L2, p_err_H1, h)
     
@@ -164,8 +166,8 @@ def convergence_exp(theta):
     # Make containers for errors
     u_errorsL2 = []
     u_errorsH1 = []
-    p_errorsL2 = [[] for i in range(2)]
-    p_errorsH1 = [[] for i in range(2)]
+    p_errorsL2 = [[] for i in range(3)]
+    p_errorsH1 = [[] for i in range(3)]
     hs = []
 
     # Iterate over mesh sizes/time steps and compute errors
@@ -186,9 +188,9 @@ def convergence_exp(theta):
 
     print "u_errorsL2 = ", ["%0.2e" % i for i in u_errorsL2]
     print "u_errorsH1 = ", ["%0.2e" % i for i in u_errorsH1]
-    for a in range(2):
-        print "p[%d]_errorsL2 = " % (a+1), ["%0.2e" % i for i in p_errorsL2[a]]
-        print "p[%d]_errorsH1 = " % (a+1), ["%0.2e" % i for i in p_errorsH1[a]]
+    for a in range(3):
+        print "p[%d]_errorsL2 = " % (a), ["%0.2e" % i for i in p_errorsL2[a]]
+        print "p[%d]_errorsH1 = " % (a), ["%0.2e" % i for i in p_errorsH1[a]]
 
     print
     
@@ -197,15 +199,19 @@ def convergence_exp(theta):
     u_ratesH1 = convergence_rates(u_errorsH1, hs)
     p0_ratesL2 = convergence_rates(p_errorsL2[0], hs)
     p1_ratesL2 = convergence_rates(p_errorsL2[1], hs)
+    p2_ratesL2 = convergence_rates(p_errorsL2[2], hs)
     p0_ratesH1 = convergence_rates(p_errorsH1[0], hs)
     p1_ratesH1 = convergence_rates(p_errorsH1[1], hs)
+    p2_ratesH1 = convergence_rates(p_errorsH1[2], hs)
 
     print "u_ratesL2 = ", ["%0.2f" % i for i in u_ratesL2]
     print "u_ratesH1 = ", ["%0.2f" % i for i in u_ratesH1]
     print "p0_ratesL2 = ", ["%0.2f" % i for i in p0_ratesL2]
     print "p1_ratesL2 = ", ["%0.2f" % i for i in p1_ratesL2]
+    print "p2_ratesL2 = ", ["%0.2f" % i for i in p2_ratesL2]
     print "p0_ratesH1 = ", ["%0.2f" % i for i in p0_ratesH1]
     print "p1_ratesH1 = ", ["%0.2f" % i for i in p1_ratesH1]
+    print "p2_ratesH1 = ", ["%0.2f" % i for i in p2_ratesH1]
 
     end = time.time()
     print "Time_elapsed = ", end - start
