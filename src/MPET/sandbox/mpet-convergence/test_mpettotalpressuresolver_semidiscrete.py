@@ -25,12 +25,13 @@ def single_run(n=8, M=8, theta=1.0):
     # Define material parameters in MPET equations
     A = 2
     c = (1.0, 1.0)
+    #c = (0.0, 0.0)
     alpha = (1.0, 1.0)
     K = (1.0, 1.0)
     S = ((0.0, 0.0), (0.0, 0.0))
     E = 1.0
     nu = 0.49999
-    nu = 0.4
+    #nu = 0.4
     params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
 
     info("Deriving exact solutions")
