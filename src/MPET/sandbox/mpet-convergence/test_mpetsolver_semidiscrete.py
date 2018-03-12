@@ -96,8 +96,12 @@ def exact_solutions(params):
     p_str = [sympy.printing.ccode(p[i]) for i in range(A)]
     f_str = [sympy.printing.ccode(f[i]) for i in range(d)]
     g_str = [sympy.printing.ccode(g[i]) for i in range(A)]
+
+    # Also compute total pressure
+    p0 = lmbda*div_u - sum([alpha[a]*p[a] for a in range(A)])
+    p0_str = sympy.printing.ccode(sympy.simplify(p0))
     
-    return (u_str, p_str, f_str, g_str)
+    return (u_str, p_str, f_str, g_str, p0_str)
     
 def single_run(n=8, M=8, theta=1.0):
 
@@ -118,7 +122,7 @@ def single_run(n=8, M=8, theta=1.0):
     params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
 
     info("Deriving exact solutions")
-    u_e, p_e, f, g = exact_solutions(params)
+    u_e, p_e, f, g, _ = exact_solutions(params)
 
     info("Setting up MPET problem")
     mesh = UnitSquareMesh(n, n)
