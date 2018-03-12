@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 __author__ = "Eleonora Piersanti (eleonora@simula.no), 2016-2017"
 __all__ = []
 
@@ -30,7 +32,7 @@ def exact_solutions(params):
     # Convert (nu, E) to (mu, labda)
     lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
     mu = E/(2.0*(1.0+nu))
-    print "(mu, lmbda) = ", (mu, lmbda)
+    print("(mu, lmbda) = ", (mu, lmbda))
     
     # Sympy utensils
     pi = math.pi
@@ -165,7 +167,7 @@ def convergence_exp(theta):
     import time
     
     # Remove all output from FEniCS (except errors)
-    set_log_level(ERROR)
+    set_log_level(LogLevel.ERROR)
 
     # Make containers for errors
     u_errorsL2 = []
@@ -180,7 +182,7 @@ def convergence_exp(theta):
     ms = (4,)*len(ns)
 
     for (n, m) in zip(ns, ms):
-        print "(n, m) = ", (n, m)
+        print("(n, m) = ", (n, m))
         (erruL2, erruH1, errpL2, errpH1, h) = single_run(n, m, theta)
         hs += [h]
         u_errorsL2 += [erruL2]
@@ -198,19 +200,19 @@ def convergence_exp(theta):
     p0_ratesH1 = convergence_rates(p_errorsH1[0], hs)
     p1_ratesH1 = convergence_rates(p_errorsH1[1], hs)
 
-    print "u_errorsL2 = ", ["%0.3f" % i for i in u_errorsL2]
-    print "u_errorsH1 = ", ["%0.3f" % i for i in u_errorsH1]
+    print("u_errorsL2 = ", ["%0.3f" % i for i in u_errorsL2])
+    print("u_errorsH1 = ", ["%0.3f" % i for i in u_errorsH1])
     
-    print "u_ratesL2 = ", ["%0.2f" % i for i in u_ratesL2]
-    print "u_ratesH1 = ", ["%0.2f" % i for i in u_ratesH1]
+    print("u_ratesL2 = ", ["%0.2f" % i for i in u_ratesL2])
+    print("u_ratesH1 = ", ["%0.2f" % i for i in u_ratesH1])
 
     end = time.time()
-    print "Time_elapsed = ", end - start
+    print("Time_elapsed = ", end - start)
     
 
 def test_convergence():
-    #convergence_exp(0.5)
-    convergence_exp(1.0)
+    convergence_exp(0.5)
+    #convergence_exp(1.0)
     
 if __name__ == "__main__":
 
