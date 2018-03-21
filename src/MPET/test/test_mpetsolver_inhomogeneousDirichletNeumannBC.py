@@ -143,23 +143,21 @@ def single_run(n=8, M=8, theta=1.0, direct_solver=True):
     sigma_ex = Expression(sigma_tuple, t=time, degree=4)
     problem.s = sigma_ex*normal
 
-
-
     p_ex = [Expression(p_e[i], t=time, degree=3) for i in range(A+1)]
     problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1,A+1)]
 
     # Apply Dirichlet conditions everywhere (indicated by the zero marker)
     on_boundary = CompiledSubDomain("on_boundary")
-    right = Right()
     on_boundary.mark(problem.momentum_boundary_markers, 0)
-    #Right edge is Neumann boundary
+    # Right edge is Neumann boundary
+    right = Right()
     right.mark(problem.momentum_boundary_markers, 1)
 
     for i in range(A):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
-    params = dict(dt=dt, theta=theta, T= T, testing=False, direct_solver=direct_solver)
+    params = dict(dt=dt, theta=theta, T= T, direct_solver=direct_solver)
     solver = MPETSolver(problem, params)
 
     # Set initial conditions

@@ -210,10 +210,12 @@ def convergence_exp(theta, direct_solver):
     assert (p1_ratesH1[-1] > 0.95), "H1 convergence in p1 failed"
 
 def test_convergence():
-    #test for direct_solver=True
+
+    # Test for direct_solver=True
     convergence_exp(0.5, True)
     convergence_exp(1.0, True)
-    #test for direct_solver=False
+
+    # Test for direct_solver=False
     convergence_exp(0.5, False)
     convergence_exp(1.0, False)
     

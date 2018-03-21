@@ -162,8 +162,8 @@ def convergence_exp(theta):
     print("")
 
     for a in range(2):
-        print("ph[%d]_errorsL2 = " % (a), ["%0.2e" % i for i in ph_errorsL2[a]])
-        print("ph[%d]_errorsH1 = " % (a), ["%0.2e" % i for i in ph_errorsH1[a]])
+        print("ph[%d]_errorsL2 = " % (a+1), ["%0.2e" % i for i in ph_errorsL2[a]])
+        print("ph[%d]_errorsH1 = " % (a+1), ["%0.2e" % i for i in ph_errorsH1[a]])
 
     print("")
     

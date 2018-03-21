@@ -2,14 +2,20 @@ __author__ = "Eleonora Piersanti <eleonora@simula.no>"
 
 # Modified by Marie E. Rognes <meg@simula.no>, 2017
 
+from numpy import random
+
 from dolfin import *
 
 from mpet.rm_basis_L2 import rigid_motions
-from numpy import random
-
 from mpet.bc_symmetric import *
+
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
+
+# Marker conventions
+DIRICHLET_MARKER = 0
+NEUMANN_MARKER = 1
+ROBIN_MARKER = 2
 
 def elastic_stress(u, E, nu):
     "Define the standard linear elastic constitutive equation."
@@ -33,9 +39,9 @@ class MPETSolver(object):
       sigma(u) = 2*mu*eps(u) + lmbda div(u) I 
 
     and eps(u) = sym(grad(u)), and mu and lmbda are the standard Lame
-    parameters. For each network a, c_a is the saturation coefficient,
-    alpha_a is the Biot-Willis coefficient, and K_a is the hydraulic
-    conductivity.
+    parameters. For each network a, c_a is the specific storage
+    coefficient, alpha_a is the Biot-Willis coefficient, and K_a is
+    the hydraulic conductivity.
 
     f is a given body force and g_a source(s) in network a.
 
@@ -44,42 +50,50 @@ class MPETSolver(object):
 
     Boundary conditions:
 
-    We assume that there is a facet function marking the different
-    subdomains of the boundary. 
+    We assume that there are (possibly multiple) facet functions
+    marking the different subdomains of the boundary. We assume that
+    Dirichlet conditions are marked by 0, Neumann conditions marked by
+    1 and Robin conditions marked by 2.
 
     For the momentum equation (1):
     
     We assume that each part of the boundary of the domain is one of
-    the following types:
+    the following two types:
 
-    Dirichlet (dO_m_D): 
+    *Dirichlet*: 
 
       u(., t) = \bar u(t) 
 
-    Neumann (dO_m_N):
+    *Neumann*:
 
       (sigma(u) - sum_{a} alpha_a p_a I) * n = s
 
-    Assume that a FacetFunction indicates the different boundaries,
-    and that only the Neumann boundary dO_m_N is marked by 1.
+    Assume that for each a, a FacetFunction indicates the different
+    boundaries, and that the Dirichlet boundary is marked by 0, the
+    Neumann boundary is marked by 1 and the Robin boundary is marked
+    by 2.
 
     For the continuity equations (2):
 
-    Dirichet (dO_c_a_D):
+    We assume that each part of the boundary of the domain is one of
+    the following three types:
+
+    *Dirichet*
 
       p_a(., t) = \bar p_a(t) 
       
-    Neumann (dO_c_a_N)
+    *Neumann*
 
       K grad p_a(., t) * n = I_a(t)
 
-    Robin  (dO_c_a_R)
+    *Robin* 
        
-      DESCRIPTION MISSING
-
+      K grad p_a(., t) * n = \beta_a (p_a - p_a_ robin)
+    
     Assume that for each a, a FacetFunction indicates the different
-    boundaries, and that only the Neumann boundary dO_c_a_N is marked
-    by 1.
+    boundaries, and that the Dirichlet boundary is marked by 0, the
+    Neumann boundary is marked by 1 and the Robin boundary is marked
+    by 2.
 
     Initial conditions:
 
@@ -90,7 +104,8 @@ class MPETSolver(object):
     Variational formulation (using Einstein summation notation over a
     in the elliptic equation below):
 
-       S MISSING IN FORMULATION BELOW
+       S MISSING IN FORMULATION BELOW.
+       ROBIN MISSING IN FORMULATION BELOW.
 
     Find u(t) and p_a(t) such that
 
@@ -116,37 +131,39 @@ class MPETSolver(object):
         if params is not None:
             self.params.update(params)
 
-        # Initialize objects and store
-        F, L0, L1, L2, P, up_, up = self.create_variational_forms()
+        # Initialize variational forms and store
+        a, a_robin, L, L0, L1, P, up_, up = self.create_variational_forms()
 
-        self.F = F
-        self.L0 = L0
-        self.L1 = L1
-        self.L2 = L2
+        self.a = a             # Main left-hand side form
+        self.a_robin = a_robin # List of left-hand side forms for Robin boundary conditions
+        self.L = L             # Right-hand side form that does not depend explicitly on time
+        self.L0 = L0           # List of right-hand side forms (from elliptic momentum equation)
+        self.L1 = L1           # List of right-hand side forms (from parabolic continuity equation)
+
+        self.up_ = up_         # Solution at previous time step
+        self.up = up           # Solution at current time step
+
         self.P = P
-        self.up_ = up_
-        self.up = up
 
     def create_dirichlet_bcs(self):
         """Extract information about Dirichlet boundary conditions from given
         MPET problem.
 
         """
-        
         VP = self.up.function_space()
 
-        # Boundary conditions for momentum equation
+        # Define and create boundary conditions for momentum equation
         bcs0 = []
         markers = self.problem.momentum_boundary_markers
         u_bar = self.problem.u_bar
-        bcs0 += [DirichletBC(VP.sub(0), u_bar, markers, 0)]
+        bcs0 += [DirichletBC(VP.sub(0), u_bar, markers, DIRICHLET_MARKER)]
 
-        # Boundary conditions for continuity equation
+        # Define and create Boundary conditions for the continuity equations
         bcs1 = []
         p_bar = self.problem.p_bar
         for i in range(self.problem.params["A"]):
             markers = self.problem.continuity_boundary_markers[i]
-            bcs1 += [DirichletBC(VP.sub(i+1), p_bar[i], markers, 0)]
+            bcs1 += [DirichletBC(VP.sub(i+1), p_bar[i], markers, DIRICHLET_MARKER)]
 
         return [bcs0, bcs1]
     
@@ -161,12 +178,11 @@ class MPETSolver(object):
         params.add("u_degree", 2)
         params.add("p_degree", 1)
         params.add("direct_solver", True)
-        params.add("stabilization", False)
-        params.add("testing", False)
         return params
 
     def create_variational_forms(self):
-
+        "."
+        
         # Extract mesh from problem
         mesh = self.problem.mesh
 
@@ -175,37 +191,33 @@ class MPETSolver(object):
         
         # Extract the number of networks
         A = self.problem.params["A"]
+        As = range(A)
 
         # Create function spaces 
         V = VectorElement("CG", mesh.ufl_cell(), self.params["u_degree"])
         W = FiniteElement("CG", mesh.ufl_cell(), self.params["p_degree"])
-
+        
         u_nullspace = self.problem.displacement_nullspace
         p_nullspace = self.problem.pressure_nullspace
         dimQ = sum(p_nullspace)
         if u_nullspace:
-            #debug("Nullspace for u detected")
             Z = rigid_motions(self.problem.mesh)
             dimZ = len(Z)
             RU = VectorElement('R', mesh.ufl_cell(), 0, dimZ)
             if dimQ:
-                #debug("Nullspace for p detected")
                 RP = [FiniteElement('R', mesh.ufl_cell(), 0)
                       for i in range(dimQ)]
-                M = MixedElement([V] + [W for i in range(A)] + [RU] + RP)
+                M = MixedElement([V] + [W for i in As] + [RU] + RP)
             else:
-                M = MixedElement([V] + [W for i in range(A)] + [RU])
+                M = MixedElement([V] + [W for i in As] + [RU])
         else:
             if dimQ:
-                #debug("Nullspace for p, but not for u detected")
                 RP = [FiniteElement('R', mesh.ufl_cell(), 0)
                       for i in range(dimQ)]
-                M = MixedElement([V] + [W for i in range(A)] + RP)
+                M = MixedElement([V] + [W for i in As] + RP)
             else:
-                #debug("Constructing standard variational form")
-                M = MixedElement([V] + [W for i in range(A)])
+                M = MixedElement([V] + [W for i in As])
 
-        #debug("Constructing Function Space")
         VW = FunctionSpace(mesh, M)
 
         # Create previous solution field(s) and extract previous
@@ -244,7 +256,7 @@ class MPETSolver(object):
         # um and pm represent the solutions at time t + dt*theta
         theta = self.params["theta"]
         um = theta*u + (1.0 - theta)*u_
-        pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in range(A)]
+        pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in As]
         
         # Extract material parameters from problem
         E = self.problem.params["E"]          
@@ -258,38 +270,37 @@ class MPETSolver(object):
         sigma = lambda u: elastic_stress(u, E, nu)
 
         # Extract body force f and sources g, boundary traction s and
-        # boundary flux I from problem description
+        # boundary flux I, boundary Robin coefficient beta(s) and
+        # Robin pressures p_robin from problem description
         f = self.problem.f
         g = self.problem.g
         s = self.problem.s
         I = self.problem.I
         beta = self.problem.beta
         p_robin = self.problem.p_robin
-        # Define variational form to be solved at each time-step.
-        dx = Measure("dx", domain=mesh)
 
-        #debug("Assembling form")
-        As = range(A)
+        # Define main variational form to be solved at each time-step.
+        dx = Measure("dx", domain=mesh)
         F = inner(sigma(u), sym(grad(v)))*dx() \
             + sum([-alpha[i]*p[i]*div(v) for i in As])*dx() \
             + sum([-c[i]*(p[i] - p_[i])*w[i] for i in As])*dx() \
             + sum([-alpha[i]*div(u-u_)*w[i] for i in As])*dx() \
             + sum([-dt*K[i]*inner(grad(pm[i]), grad(w[i])) for i in As])*dx() \
             + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \
-                   for i in As])*dx() \
+                   for i in As])*dx() 
 
+        # Define form for preconditioner
         P = 0
         if not self.params["direct_solver"]:
-            info("Assembling preconditioner")
+            info("Defining preconditioner")
             mu = E/(2.0*((1.0 + nu)))
             pu = mu * inner(grad(u), grad(v))*dx() 
             pp = sum([c[i]*p[i]*w[i]*dx() + dt*theta* K[i]*inner(grad(p[i]), grad(w[i]))*dx() \
                       + dt*theta*S[i][i]*p[i]*w[i]*dx() for i in As])
             P += pu + pp
 
-        # Add orthogonality vefrsus rigid motions if nullspace for the
+        # Add orthogonality versus rigid motions if nullspace for the
         # displacement
-        #debug("Assembling nullspace for u")
         if u_nullspace:
             F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
                  + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
@@ -307,213 +318,240 @@ class MPETSolver(object):
                         P += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx() 
                     i += 1
                     
-        # Add body force and traction boundary condition for momentum equation
-        NEUMANN_MARKER = 1
-        ROBIN_MARKER = 2
+        # Add body force and traction boundary condition for momentum
+        # equation. The form L0 holds the right-hand side terms of the
+        # momentum (elliptic) equation, which may depend on time
+        # explicitly and should be evaluated at time t + dt
         markers = self.problem.momentum_boundary_markers
         dsm = Measure("ds", domain=mesh, subdomain_data=markers)
         L0 = dot(f, v)*dx() + inner(s, v)*dsm(NEUMANN_MARKER)
-        # Add source and flux boundary conditions for continuity equations
+
+        # Define forms including sources and flux boundary conditions
+        # for continuity equations. The list of forms L1 holds the
+        # right-hand side terms of the continuity (parabolic)
+        # equations, which may depend on time explicitly, and should
+        # be evaluated at t + theta*dt
         dsc = []
         L1 = []
-        L2 = []
-        info("Assembling Neumann and Robin rhs")
-        for i in As:
-            markers = self.problem.continuity_boundary_markers[i]
+        a_robin = []
+        info("Defining contributions from Neumann and Robin boundary conditions")
+        for a in As:
+            markers = self.problem.continuity_boundary_markers[a]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
-            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
-            
-            #FIXME: Constant(0.0)*p[i]*w[i]*dx() this term has been added to make the assemble_system possible        
-            L2 += [dt*beta[i]*(-pm[i]+p_robin[i])*w[i]*dsc[i](ROBIN_MARKER) + Constant(0.0)*p[i]*w[i]*dx()]
 
+            # Add Neumann contribution to list L1
+            L1 += [dt*g[a]*w[a]*dx() + dt*I[a]*w[a]*dsc[a](NEUMANN_MARKER)]
+
+            # Add Robin contributions to both F and to L1 
+            F2a = dt*beta[a]*(-pm[a] + p_robin[a])*w[a]*dsc[a](ROBIN_MARKER)
+            a_robin += [lhs(F2a)]
+            L1 += [rhs(F2a)]
+
+        # Define function for current solution
         up = Function(VW)
-        
-        return F, L0, L1, L2, P, up_, up
-    def solve_direct(self):
-        """Solve given MPET problem, yield solutions at each time step.
 
-        Assumptions:
-        - Users should set self.up_ to be the initial conditions for up;
+        # Just split main form F here into a and L
+        a = lhs(F)
+        L = rhs(F)
+
+        return a, a_robin, L, L0, L1, P, up_, up
+
+    def solve(self):
+        """Solve the given MPET problem to the end time given by the parameter
+        'T'. This method yields solutions at each time step.
+
+        Users must set 'up_' to the correct initial conditions prior
+        to calling solve.
+
         """
-        
+        if self.params["direct_solver"]:
+            return self.solve_direct()
+        else:
+            return self.solve_iterative()
+
+    def solve_direct(self):
+        """Solve the given MPET problem to the end time given by the parameter
+        'T' using a direct (LU) solver. This method yields solutions
+        at each time step.
+
+        Users must set 'up_' to the correct initial conditions prior
+        to calling solve.
+
+        """
+
+        # Extract parameters related to the time-stepping
         dt = self.params["dt"]
         T = self.params["T"]
         theta = self.params["theta"]
         time = self.problem.time
 
-        # Extract lhs a and implicitly time-dependent rhs L
-        (a, L) = system(self.F)
+        # Extract relevant variational forms
+        a = self.a
+        a_robin = self.a_robin
+        L = self.L
         L0 = self.L0
         L1 = self.L1
-        L2 = self.L2
-        P = self.P
-        # Extract essential bcs
+
+        # Create essential bcs
         [bcs0, bcs1] = self.create_dirichlet_bcs()
         bcs = bcs0 + bcs1
         
-        # Assemble left-hand side matrix
-                
+        # Assemble left-hand side matrix including Robin
+        # terms. (Design due to missing FEniCS feature of assembling
+        # integrals of same type with different subdomains.)
         A = assemble(a)  
-
-        for L2i in L2: 
-            A2 = assemble(lhs(L2i))  
-            A.axpy(1.0, A2, False)
+        for a_a in a_robin:
+            A_a = assemble(a_a)
+            A.axpy(1.0, A_a, False) 
         
-        # Create solver
+        # Apply boundary conditions to matrix once:
+        for bc in bcs:
+            bc.apply(A)
+        
+        # Create LU solver and reuse LU factorization
         solver = LUSolver(A)
-        self.up.assign(self.up_)
-
+        solver.parameters['reuse_factorization'] = True 
+        
         while (float(time) < (T - 1.e-9)):
 
-            # Handle the different parts of the rhs a bit differently
-            # due to theta-scheme
+            # Times defining the time interval (for readability)
+            t0 = float(time)
+            t_theta = t0 + theta*float(dt)
+            t1 = t0 + float(dt)
+            
+            # 1. Assemble the parts of right-hand side forms (i.e. L)
+            # that does not depend on time explicitly
             b = assemble(L)  
 
-            # Handle the different parts of the rhs a bit differently
-            # due to theta-scheme
-            # Set t_theta to t + dt (when theta = 1.0) or t + 1/2 dt
-            # (when theta = 0.5)
-            t_theta = float(time) + theta*float(dt)
+            # Update time to t0 + theta*dt
             time.assign(t_theta)                
-            # Assemble time-dependent rhs for parabolic equations
-            for L1i in L1: 
-                b1 = assemble(L1i)  
-                b.axpy(1.0, b1)
+
+            # 2. Assemble time-dependent rhs for parabolic equations
+            # and add to right-hand side vector b
+            for l in L1: 
+                b_l = assemble(l)  
+                b.axpy(1.0, b_l)
+
+            # Update time to t1:
+            time.assign(t1)
             
-            for L2i in L2: 
-                b2 = assemble(rhs(L2i))
-                b.axpy(1.0, b2)    
-            # Set t to "t"
-            t = float(time) + (1.0 - theta)*float(dt)
-            time.assign(t)
-            
-            # Assemble time-dependent rhs for elliptic equations
+            # 3. Assemble time-dependent rhs for elliptic equations
             b0 = assemble(L0)
             b.axpy(1.0, b0)
 
-
             # Apply boundary conditions            
             for bc in bcs:
-                bc.apply(A, b)
+                bc.apply(b)
 
             # Solve
             solver.solve(A, self.up.vector(), b)
 
             # Yield solution and time
             yield self.up, float(time)
+
             # Update previous solution up_ with current solution up
             self.up_.assign(self.up)
 
             # Update time
-            time.assign(t)
-
+            time.assign(t1)
 
     def solve_iterative(self):
-        """Solve given MPET problem, yield solutions at each time step.
+        """Solve the given MPET problem to the end time given by the parameter
+        'T' using a preconditioned Krylov solver. This method yields
+        solutions at each time step.
 
-        Assumptions:
-        - Users should set self.up_ to be the initial conditions for up;
+        Users must set 'up_' to the correct initial conditions prior
+        to calling solve.
+
         """
-        
+
+        # Extract parameters related to the time-stepping
         dt = self.params["dt"]
         T = self.params["T"]
         theta = self.params["theta"]
         time = self.problem.time
 
-        # Extract lhs a and implicitly time-dependent rhs L
-        (a, L) = system(self.F)
+        # Extract relevant variational forms
+        a = self.a
+        a_robin = self.a_robin
+        L = self.L
         L0 = self.L0
         L1 = self.L1
-        L2 = self.L2
-        P = self.P
-        # Extract essential bcs
+        prec = self.P
+
+        # Create essential bcs
         [bcs0, bcs1] = self.create_dirichlet_bcs()
         bcs = bcs0 + bcs1
         
-        # Assemble left-hand side matrix 
+        # Assemble left-hand side matrix including Robin
+        # terms. (Design due to missing FEniCS feature of assembling
+        # integrals of same type with different subdomains.)
         A = assemble(a)  
+        for a_a in a_robin:
+            A_a = assemble(a_a)
+            A.axpy(1.0, A_a, False) 
 
-        for L2i in L2: 
-            A2 = assemble(lhs(L2i))  
-            A.axpy(1.0, A2, False)
-        
-        # Create solver
-        PP = assemble(P)
+        # Assemble preconditioner and apply boundary conditions
+        P = assemble(prec)
         for bc in bcs:
-            apply_symmetric(bc, PP)
+            apply_symmetric(bc, P)
 
+        # Create KrylovSolver
         solver = PETScKrylovSolver("minres", "hypre_amg")
-        
-        if self.params["testing"]:
-            print("eigenvalue problem")
-            eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
-            eigensolver.parameters['tolerance'] = 1e-6
-            eigensolver.parameters['maximum_iterations'] = 10000
 
-            eigensolver.parameters['spectrum'] = 'largest magnitude'
-            eigensolver.solve(1)
-            emax = eigensolver.get_eigenvalue(0)
-            eigensolver.parameters['spectrum'] = 'smallest magnitude'
-            eigensolver.solve(1)
-            emin = eigensolver.get_eigenvalue(0)
-            self.condition_number = sqrt(emax[0]**2 + emax[1]**2)/sqrt(emin[0]**2 + emin[1]**2)
-
-            self.up.vector()[:] = random.randn(self.up.vector().array().size)
-        else:        
-            # Start with up as up_, can help Krylov Solvers
-            self.up.assign(self.up_)
+        # Assign initial conditions (in up_) to current solution as a
+        # good starting guess for iterative solver
+        self.up.assign(self.up_)
 
         while (float(time) < (T - 1.e-9)):
+
+            # Copy the non-boundary conditions applied matrix A
             Acopy = A.copy()
 
-            # Handle the different parts of the rhs a bit differently
-            # due to theta-scheme
+            # Times defining the time interval (for readability)
+            t0 = float(time)
+            t_theta = t0 + theta*float(dt)
+            t1 = t0 + float(dt)
+            
+            # 1. Assemble the parts of right-hand side forms (i.e. L)
+            # that does not depend on time explicitly
             b = assemble(L)  
 
-            # Handle the different parts of the rhs a bit differently
-            # due to theta-scheme
             # Set t_theta to t + dt (when theta = 1.0) or t + 1/2 dt
             # (when theta = 0.5)
-            t_theta = float(time) + theta*float(dt)
             time.assign(t_theta)                
-            # Assemble time-dependent rhs for parabolic equations
-            for L1i in L1: 
-                b1 = assemble(L1i)  
-                b.axpy(1.0, b1)
+
+            # 2. Assemble time-dependent rhs for parabolic equations
+            # and add to right-hand side vector b
+            for l in L1: 
+                b_l = assemble(l)  
+                b.axpy(1.0, b_l)
+
+            # Update time to t1:
+            time.assign(t1)
             
-            for L2i in L2: 
-                b2 = assemble(rhs(L2i))
-                b.axpy(1.0, b2)    
-            # Set t to "t"
-            t = float(time) + (1.0 - theta)*float(dt)
-            time.assign(t)
-            
-            # Assemble time-dependent rhs for elliptic equations
+            # 3. Assemble time-dependent rhs for elliptic equations
             b0 = assemble(L0)
             b.axpy(1.0, b0)
 
-
-            # Apply boundary conditions            
+            # Apply boundary conditions symmetrically            
             for bc in bcs:
                 bc.apply(b)    
                 apply_symmetric(bc, Acopy, b)
 
+            # Give updated matrix and preconditioner P to solver
+            solver.set_operators(Acopy, P)
+
             # Solve
-            solver.set_operators(Acopy, PP)
             niter = solver.solve(self.up.vector(), b)
+            
             # Yield solution and time
             yield self.up, float(time)
+
             # Update previous solution up_ with current solution up
             self.up_.assign(self.up)
 
             # Update time
-            time.assign(t)
+            time.assign(t1)
 
-
-    def solve(self):
-        if self.params["direct_solver"]:
-            return self.solve_direct()
-        else:
-            return self.solve_iterative()
-        
     
