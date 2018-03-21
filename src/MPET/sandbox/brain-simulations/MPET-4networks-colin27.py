@@ -10,6 +10,8 @@ from __future__ import print_function
 __author__ = "Eleonora Piersanti (eleonora@simula.no), 2016-2017"
 __all__ = []
 
+# Modified by Marie E. Rognes, 2018
+
 from mpet import *
 #from mshr import *
 
@@ -20,6 +22,7 @@ parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
+# FIXME
 # Code for defining prescribed boundary CSF pressure
 cpp_code = """
 [&]() {
@@ -35,13 +38,15 @@ def create_mesh():
 
     # Read mesh
     mesh = Mesh()
-    file = HDF5File(MPI.comm_world, "colin27_whitegray_boundaries.h5", "r")
-    file.read(mesh, "/mesh", True)
+    #file = HDF5File(MPI.comm_world, "colin27_whitegray_boundaries.h5", "r")
+    file = HDF5File(MPI.comm_world, "colin27_coarse_boundaries.h5", "r")
+    # Coarse Colin27 mesh yields 666 198 dofs (about 100 K cells)
+    file.read(mesh, "/mesh", False)
 
     # Read white/gray markers
     D = mesh.topology().dim()
-    markers = MeshFunction("size_t", mesh, D)
-    file.read(markers, "/markers")
+    markers = MeshFunction("size_t", mesh, D) # Not defined for coarse mesh
+    #file.read(markers, "/markers")
 
     # Read skull/ventricle markers
     boundaries = MeshFunction("size_t", mesh, D-1)

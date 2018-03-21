@@ -24,9 +24,6 @@ bdry = BoundaryMesh(mesh, "exterior")
 a = bdry.entity_map(bdry.topology().dim())
 print(a)
 
-gray_facets = []
-white_facets = []
-
 boundaries = MeshFunction("size_t", mesh, D-1)
 boundaries.set_all(0)
 
