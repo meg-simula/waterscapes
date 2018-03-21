@@ -409,7 +409,7 @@ class MPETSolver(object):
             bc.apply(A)
         
         # Create LU solver and reuse LU factorization
-        solver = LUSolver(A)
+        solver = LUSolver(A, "mumps")
         solver.parameters['reuse_factorization'] = True 
         
         while (float(time) < (T - 1.e-9)):

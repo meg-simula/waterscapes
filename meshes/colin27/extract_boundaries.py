@@ -3,13 +3,13 @@
 # defined as "Skull", boundary facets bordering on white matter is
 # defined as "Ventricles".
 
-# NB: Runs with Python 2 and FEniCS 2017.X, not with FEniCS 2018.1
+# NB: Runs with Python 3 and FEniCS 2017.2.0, not with FEniCS 2018.1.dev0
 
 from dolfin import *
 
 file = HDF5File(mpi_comm_world(), "colin27_whitegray.h5", "r")
 mesh = Mesh()
-file.read(mesh, "/mesh", True)
+file.read(mesh, "/mesh", False)
 
 mesh.init()
 
@@ -22,7 +22,7 @@ file.read(markers, "/markers")
 
 bdry = BoundaryMesh(mesh, "exterior")
 a = bdry.entity_map(bdry.topology().dim())
-print a
+print(a)
 
 gray_facets = []
 white_facets = []
@@ -61,8 +61,7 @@ for facet in cells(bdry):
 file = File("colin27_boundaries.pvd")
 file << boundaries
 
-file = HDF5File(mpi_comm_world(), "colin27_whitegray_copy.h5", "w")
-
+file = HDF5File(mpi_comm_world(), "colin27_whitegray_boundaries.h5", "w")
 file.write(mesh, "/mesh")
 file.write(markers, "/markers")
 file.write(boundaries, "/boundaries")

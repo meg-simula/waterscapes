@@ -243,7 +243,7 @@ def mpet_solve(mesh,
             for i in range(A):
                 filep_pvd[i] << p[i]
 
-            t_stop = timemodule.time()
+        t_stop = timemodule.time()
         print("Solver time = %0.3g (s)" % (t_stop - t_start))
                 
     elif formulation_type == "total_pressure":
@@ -296,13 +296,30 @@ if __name__ == "__main__":
     solver_type = "direct"
     
     # Create and store mesh:
-    N = 20
+    N = 30
     mesh = create_mesh(N)
 
     # Run simulation
-    mpet_solve(mesh, M=20, theta=1.0, nu=nu,
+    mpet_solve(mesh, M=2, theta=1.0, nu=nu,
                formulation_type=formulation_type,
                solver_type=solver_type)
 
     # Display some timings
     list_timings(TimingClear.keep, [TimingType.wall,])
+
+
+    # N = 20, M = 20, MPI = 1
+    # mumps:   20 x 0.20224      4.0448
+    # umfpack: 20 x 0.24768      4.9536
+    # superlu: 20 x 2.3334      46.667
+    # petsc:   20 x 4.8328      96.655
+
+    # N = 30, M = 2, MPI = 1 (dofs = 122513)
+    # mumps:   2 x 12.649      25.298
+    # umfpack: OUT OF MEMORY
+
+    # N = 30, M = 2, MPI = 2 (dofs = 122513)
+    # mumps:  2 x 9.3119      18.624
+
+
+    
