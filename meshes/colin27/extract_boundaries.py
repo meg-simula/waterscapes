@@ -1,3 +1,10 @@
+# Script to extract boundary markers from the colin27 white-gray
+# mesh. Boundary facets bordering on gray matter marked cells is
+# defined as "Skull", boundary facets bordering on white matter is
+# defined as "Ventricles".
+
+# NB: Runs with Python 2 and FEniCS 2017.X, not with FEniCS 2018.1
+
 from dolfin import *
 
 file = HDF5File(mpi_comm_world(), "colin27_whitegray.h5", "r")
@@ -49,9 +56,16 @@ for facet in cells(bdry):
     elif marker == 4:
         boundaries[parent_facet.index()] = VENTRICLES
     else:
-        error("Soundn't be here!")
+        error("Shoundn't be here!")
 
 file = File("colin27_boundaries.pvd")
 file << boundaries
+
+file = HDF5File(mpi_comm_world(), "colin27_whitegray_copy.h5", "w")
+
+file.write(mesh, "/mesh")
+file.write(markers, "/markers")
+file.write(boundaries, "/boundaries")
+file.close()
 
         
