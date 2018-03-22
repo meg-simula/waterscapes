@@ -22,18 +22,6 @@ parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
-# FIXME
-# Code for defining prescribed boundary CSF pressure
-cpp_code = """
-[&]() {
-    if (std::abs(x[0]) <= x_mid && std::abs(x[1]) <= x_mid && std::abs(x[2]) <= x_mid) {
-        return mmHg2Pa*(5.0 + 2.0*sin(2.0*pi*time));
-    } else {
-        return mmHg2Pa*(5.0 + (2.0 + delta)*sin(2.0*pi*time));
-    }
-}()
-"""
-
 def create_mesh():
 
     # Read mesh
@@ -111,36 +99,57 @@ def mpet_solve(mesh, markers, boundaries,
     # Boundary conditions for the displacement
     problem.u_bar = Constant((0.0, 0.0, 0.0))
 
-    # Boundary condition for the CSF pressure
-    mmHg2Pa = 133.32
-    delta = 0.012 # mmHg
-
-    # FIXME
-    x_mid = 100
-    p_CSF = Expression(cpp_code, delta=delta, mmHg2Pa=mmHg2Pa, time=time,
-                       x_mid=x_mid, degree=0)
-    
-    # Boundary condition for the arterial pressure
-    p_BPA = Expression("mmHg2Pa*(70.0 + 10.0*sin(2.0*pi*t))",
-                       mmHg2Pa=mmHg2Pa, t=time, degree=0)
-
-    # Boundary condition for the venous pressure
-    p_BPV = Constant(mmHg2Pa*6.0)
-
-    # Initial condition for the capillary compartment. 
-    p_CAP = Constant(mmHg2Pa*(6.0 + 70)/2)
-    
-    # Collect pressure boundary conditions. Note that we send the
-    # p_CAP here, not to use it as a boundary condition, but for
-    # convenience in prescribing initial conditions later.
-    problem.p_bar = [p_CSF, p_BPA, p_BPV, p_CAP]
-
-    # Mark boundaries for the momentum equation (0 is Dirichlet, 1 is
-    # Neumann)
+    # Marker conventions for boundary conditions and boundaries
     SKULL = 1
     VENTRICLES = 2
     DIRICHLET = 0
     NEUMANN = 1
+
+    mmHg2Pa = 133.32  # Conversion factor from mmHg to Pascal
+
+    # -------------------------------------------------------------------------
+    # Boundary value for the e pressure. Defined as p_e = p_base +
+    # chi_v*p_incr where chi_v is an indicator function for the
+    # ventricles.
+    p_e_base = Expression("mmHg2Pa*(5.0 + 2.0*sin(2.0*pi*t))",
+                            mmHg2Pa=mmHg2Pa, t=time, degree=0)
+    delta = 0.012 
+    p_e_incr = Expression("mmHg2Pa*delta*sin(2.0*pi*t)",
+                            mmHg2Pa=mmHg2Pa, delta=delta, t=time, degree=0)
+    DG0 = FunctionSpace(mesh, "DG", 0)
+    chi_v = Function(DG0) # Indicator function for the ventricles: 1
+                          # on cells boardering on the ventricles, 0
+                          # elsewhere
+
+    # Define indicator function by iterating over boundary facets,
+    # identifying facets marked with VENTRICLES, identifying cell
+    # associated with this facet, marking that cell to 1.
+    for facet_id in range(len(boundaries.array())):
+        facet = Facet(mesh, facet_id)
+        if boundaries[facet_id] == VENTRICLES:
+            for cell in cells(facet):
+                chi_v.vector()[cell.index()] = 1
+
+    p_e = p_e_base + chi_v*p_e_incr
+    # -------------------------------------------------------------------------
+    
+    # Boundary condition for the arterial pressure
+    p_a = Expression("mmHg2Pa*(70.0 + 10.0*sin(2.0*pi*t))",
+                       mmHg2Pa=mmHg2Pa, t=time, degree=0)
+
+    # Boundary condition for the venous pressure
+    p_v = Constant(mmHg2Pa*6.0)
+
+    # Initial condition for the capillary compartment. 
+    p_c = Constant(mmHg2Pa*(6.0 + 70)/2)
+    
+    # Collect pressure boundary conditions. Note that we send the
+    # p_CAP here, not to use it as a boundary condition, but for
+    # convenience in prescribing initial conditions later.
+    problem.p_bar = [p_e, p_a, p_v, p_c]
+
+    # Mark boundaries for the momentum equation (0 is Dirichlet, 1 is
+    # Neumann)
 
     # Iterate over boundary markers, and transfer markers
     info("Transferring boundary markers")
@@ -202,10 +211,13 @@ def mpet_solve(mesh, markers, boundaries,
         VP = solver.up_.function_space()
         V = VP.sub(0).collapse()
         assign(solver.up_.sub(0), interpolate(Constant((0.0, 0.0, 0.0)), V))
-        for i in range(A):
+        Q = VP.sub(1).collapse()
+
+        assign(solver.up_.sub(1), project(problem.p_bar[0], Q))
+        for i in range(1, A):
             Q = VP.sub(i+1).collapse()
             assign(solver.up_.sub(i+1), interpolate(problem.p_bar[i], Q))
-
+            
         # Split and store initial solutions
         solver.up.assign(solver.up_)
         values = solver.up.split()
