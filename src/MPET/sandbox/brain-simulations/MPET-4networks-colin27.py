@@ -33,7 +33,7 @@ def create_mesh():
 
     # Read white/gray markers
     D = mesh.topology().dim()
-    markers = MeshFunction("size_t", mesh, D) # Not defined for coarse mesh
+    #markers = MeshFunction("size_t", mesh, D) # Not defined for coarse mesh
     #file.read(markers, "/markers")
 
     # Read skull/ventricle markers
@@ -41,18 +41,18 @@ def create_mesh():
     file.read(boundaries, "/boundaries")
     file.close()
 
-    return mesh, markers, boundaries
+    return mesh, boundaries
 
-def mpet_solve(mesh, markers, boundaries,
-               M=8, theta=1.0, nu=0.35,
+def mpet_solve(mesh, boundaries,
+               M=8, theta=1.0, nu=0.479,
                formulation_type="standard",
                solver_type="direct"):
     "M the number of time steps."
     
     # Define end time T and timestep dt
     time = Constant(0.0)
-    T = 1.0
-    dt = float(T/M)
+    T = 10.0
+    dt = 0.1
 
     # # Non-scaled parameters from Ventikos
     # # s_24 = 1.5e-19
@@ -107,15 +107,8 @@ def mpet_solve(mesh, markers, boundaries,
 
     mmHg2Pa = 133.32  # Conversion factor from mmHg to Pascal
 
-    # -------------------------------------------------------------------------
-    # Boundary value for the e pressure. Defined as p_e = p_base +
-    # chi_v*p_incr where chi_v is an indicator function for the
-    # ventricles.
-    p_e_base = Expression("mmHg2Pa*(5.0 + 2.0*sin(2.0*pi*t))",
-                            mmHg2Pa=mmHg2Pa, t=time, degree=0)
-    delta = 0.012 
-    p_e_incr = Expression("mmHg2Pa*delta*sin(2.0*pi*t)",
-                            mmHg2Pa=mmHg2Pa, delta=delta, t=time, degree=0)
+    # --------------------------------------------------------------
+    # Prescribed boundary pressure for the CSF (extracellular space)
     DG0 = FunctionSpace(mesh, "DG", 0)
     chi_v = Function(DG0) # Indicator function for the ventricles: 1
                           # on cells boardering on the ventricles, 0
@@ -130,14 +123,17 @@ def mpet_solve(mesh, markers, boundaries,
             for cell in cells(facet):
                 chi_v.vector()[cell.index()] = 1
 
-    p_e = p_e_base + chi_v*p_e_incr
-    # -------------------------------------------------------------------------
+    delta = 0.012 
+    # NB: Function evaluation of chi_v may be slow here.
+    p_e = Expression("mmHg2Pa*(5.0 + 2*sin(2*pi*t) + d*sin(2*pi*t)*chi_v)",
+                     d=delta, mmHg2Pa=mmHg2Pa, t=time, chi_v=chi_v, degree=0)
+    # --------------------------------------------------------------
     
-    # Boundary condition for the arterial pressure
+    # Prescribed boundary arterial pressure
     p_a = Expression("mmHg2Pa*(70.0 + 10.0*sin(2.0*pi*t))",
                        mmHg2Pa=mmHg2Pa, t=time, degree=0)
 
-    # Boundary condition for the venous pressure
+    # Prescribed boundary venous pressure
     p_v = Constant(mmHg2Pa*6.0)
 
     # Initial condition for the capillary compartment. 
@@ -180,24 +176,24 @@ def mpet_solve(mesh, markers, boundaries,
     direct_solver = (solver_type == "direct")
     params = dict(dt=dt, theta=theta, T=T,  direct_solver=direct_solver)
 
-    # Define storage for the displacement and the pressures
+    # Define storage for the displacement and the pressures in HDF5
+    # format (for post-processing)
     prefix = "results_brain/nu_" + str(nu)\
              + "_formulationtype_" + formulation_type\
              + "_solvertype_" + solver_type 
-    fileu = XDMFFile(prefix + "/u.pvd")
-    filep = [XDMFFile(prefix + "/p%d.pvd" % (i+1)) for i in range(A)]
+    fileu_hdf5 = HDF5File(MPI.comm_world, prefix + "/u.h5", "w")
+    filep_hdf5 = [HDF5File(MPI.comm_world, prefix + "/p%d.h5" % (i+1), "w")
+                  for i in range(A)]
 
+    # Define storage for the displacement and the pressures in VTU
+    # format (for quick visualization)
     fileu_pvd = File(prefix + "/pvd/u.pvd")
     filep_pvd = [File(prefix + "/pvd/p%d.pvd" % (i+1)) for i in range(A)]
     
-    # Store mesh and markers in a bunch of formats
-    filemesh = File(prefix+"/mesh.pvd")
+    # Store mesh and boundaries in a VTU/PVD format too
+    filemesh = File(prefix + "/pvd/mesh.pvd")
     filemesh << mesh
-
-    filemarkers = File(prefix+"/markers.pvd")
-    filemarkers << markers
-    
-    fileboundaries = File(prefix+"/skull_ventricles.pvd")
+    fileboundaries = File(prefix+"/pvd/skull_ventricles.pvd")
     fileboundaries << boundaries
 
     if formulation_type == "standard":
@@ -223,10 +219,9 @@ def mpet_solve(mesh, markers, boundaries,
         values = solver.up.split()
         u = values[0]
         p = values[1:]
-        fileu.write(u, 0.0)
+        fileu_hdf5.write(u, "/u", 0.0)
         for i in range(A):
-            filep[i].write(p[i], 0.0)
-
+            filep_hdf5[i].write(p[i], "/p_%d" % i, 0.0)
         fileu_pvd << u
         for i in range(A):
             filep_pvd[i] << p[i]
@@ -244,9 +239,9 @@ def mpet_solve(mesh, markers, boundaries,
             u = values[0]
             p = values[1:]
 
-            fileu.write(u, t)
+            fileu_hdf5.write(u, "/u", t)
             for i in range(A):
-                filep[i].write(p[i], t)
+                filep_hdf5[i].write(p[i], "/p_%d" % i, t)
 
             fileu_pvd << u
             for i in range(A):
@@ -256,21 +251,24 @@ def mpet_solve(mesh, markers, boundaries,
         print("Solver time = %0.3g (s)" % (t_stop - t_start))
     else:
         pass
-        
+
+    # Close HDF5 files
+    fileu_hdf5.close()
+    filep_hdf5.close()
+
 if __name__ == "__main__":
 
     import sys
 
-    #nu = 0.497
     nu = 0.4999
     formulation_type = "standard"
     solver_type = "direct"
     
     # Read mesh and other mesh related input
-    mesh, markers, boundaries = create_mesh()
+    mesh, boundaries = create_mesh()
 
     # Run simulation
-    mpet_solve(mesh, markers, boundaries,
+    mpet_solve(mesh, boundaries,
                M=20, theta=1.0, nu=nu,
                formulation_type=formulation_type,
                solver_type=solver_type)
