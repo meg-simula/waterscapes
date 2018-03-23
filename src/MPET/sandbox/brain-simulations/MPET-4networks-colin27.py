@@ -31,6 +31,9 @@ def create_mesh():
     # Coarse Colin27 mesh yields 666 198 dofs (about 100 K cells)
     file.read(mesh, "/mesh", False)
 
+    print("#cells = ", mesh.num_cells())
+    print("#vertices = ", mesh.num_vertices())
+    
     # Read white/gray markers
     D = mesh.topology().dim()
     #markers = MeshFunction("size_t", mesh, D) # Not defined for coarse mesh
@@ -63,17 +66,19 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
     # Define material parameters in MPET equations
     A = 4
     (c_e, c_a, c_v, c_c) = (3.9e-4, 2.9e-4, 1.5e-5, 2.9e-4)
-    c = (c_e, c_a, c_v, c_c) # In accordance with Vardakis et al, 2017
+    c = (c_e, c_a, c_v, c_c) # In accordance with Guo et al, 2018
     print("c = ", c)
-    alpha = (0.49, 0.25, 0.01, 0.25) # In accordance with Vardakis et al, 2017
+    alpha = (0.49, 0.25, 0.01, 0.25) # In accordance with Guo et al, 2018
     print("alpha = ", alpha)
 
     kappa = (1.4e-14, 1.e-10, 1.e-10, 1.e-10) # Vardakis et al, 2016, Oedema
     eta = (8.9e-4, 2.67e-3, 2.67e-3, 2.67e-3)
     scaling = 1.e6 # Scaling from Vardakis values to mm, g, s
+
     K = [kappa[i]/eta[i]*scaling for i in range(4)]
     print("K = ", ["%0.3g" % K_j for K_j in K])
-    
+    #K =  ['1.57e-05', '0.0375', '0.0375', '0.0375']
+
     # Define transfer coefficient and transfer matrix
     s_24 = 1.e-3 # s_a->c and vice versa
     s_43 = 1.e-3 # s_c->v and vice versa
