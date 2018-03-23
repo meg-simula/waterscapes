@@ -43,16 +43,14 @@ def create_mesh():
 
     return mesh, boundaries
 
-def mpet_solve(mesh, boundaries,
-               M=8, theta=1.0, nu=0.479,
+def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
+               theta=1.0, nu=0.479,
                formulation_type="standard",
                solver_type="direct"):
     "M the number of time steps."
     
-    # Define end time T and timestep dt
+    # Define end time T 
     time = Constant(0.0)
-    T = 10.0
-    dt = 0.1
 
     # # Non-scaled parameters from Ventikos
     # # s_24 = 1.5e-19
@@ -254,13 +252,14 @@ def mpet_solve(mesh, boundaries,
 
     # Close HDF5 files
     fileu_hdf5.close()
-    filep_hdf5.close()
+    for f in filep_hdf5:
+        f.close()
 
 if __name__ == "__main__":
 
     import sys
 
-    nu = 0.4999
+    nu = 0.499
     formulation_type = "standard"
     solver_type = "direct"
     
@@ -268,8 +267,8 @@ if __name__ == "__main__":
     mesh, boundaries = create_mesh()
 
     # Run simulation
-    mpet_solve(mesh, boundaries,
-               M=20, theta=1.0, nu=nu,
+    mpet_solve(mesh, boundaries, T=5.0, dt=0.05,
+               theta=1.0, nu=nu,
                formulation_type=formulation_type,
                solver_type=solver_type)
 
