@@ -127,6 +127,7 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
                 chi_v.vector()[cell.index()] = 1
 
     delta = 0.012 
+
     # NB: Function evaluation of chi_v may be slow here.
     p_e = Expression("mmHg2Pa*(5.0 + 2*sin(2*pi*t) + d*sin(2*pi*t)*chi_v)",
                      d=delta, mmHg2Pa=mmHg2Pa, t=time, chi_v=chi_v, degree=0)
@@ -147,6 +148,11 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
     # convenience in prescribing initial conditions later.
     problem.p_bar = [p_e, p_a, p_v, p_c]
 
+    # Elastic traction is zero, means that s = negative sum of fluid
+    # pressures
+    normal = FacetNormal(mesh)
+    problem.s = sum([- alpha[j]*problem.p_bar[j] for j in range(4)])*normal
+
     # Mark boundaries for the momentum equation (0 is Dirichlet, 1 is
     # Neumann)
 
@@ -162,6 +168,7 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
             problem.continuity_boundary_markers[1][i] = DIRICHLET
             problem.continuity_boundary_markers[2][i] = DIRICHLET
             problem.continuity_boundary_markers[3][i] = NEUMANN
+            #problem.continuity_boundary_markers[3][i] = DIRICHLET
         # Boundary conditions on the ventricles for the different
         # compartments: Dirichlet (0) conditions for CSF (0) and
         # venous (2), Neumann (1) for the arterial (1) and
@@ -172,6 +179,7 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
             problem.continuity_boundary_markers[1][i] = NEUMANN
             problem.continuity_boundary_markers[2][i] = DIRICHLET
             problem.continuity_boundary_markers[3][i] = NEUMANN
+            #problem.continuity_boundary_markers[3][i] = DIRICHLET
         else:
             pass    
 
@@ -181,7 +189,7 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
 
     # Define storage for the displacement and the pressures in HDF5
     # format (for post-processing)
-    prefix = "results_brain/nu_" + str(nu)\
+    prefix = "results_brain_transfer1.e-3/nu_" + str(nu)\
              + "_formulationtype_" + formulation_type\
              + "_solvertype_" + solver_type 
     fileu_hdf5 = HDF5File(MPI.comm_world, prefix + "/u.h5", "w")
@@ -219,8 +227,9 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
             
         # Split and store initial solutions
         solver.up.assign(solver.up_)
-        values = solver.up.split()
+        values = solver.up.split(deepcopy=True)
         u = values[0]
+        print("u.vector().max() = ", u.vector().max())
         p = values[1:]
         fileu_hdf5.write(u, "/u", 0.0)
         for i in range(A):
@@ -238,9 +247,10 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
             info("t = %g" % t)
 
             # Split and store solutions 
-            values = up.split()
+            values = up.split(deepcopy=True)
             u = values[0]
             p = values[1:]
+            print("u.vector().max() = ", u.vector().max())
 
             fileu_hdf5.write(u, "/u", t)
             for i in range(A):
@@ -264,7 +274,7 @@ if __name__ == "__main__":
 
     import sys
 
-    nu = 0.499
+    nu = 0.497
     formulation_type = "standard"
     solver_type = "direct"
     

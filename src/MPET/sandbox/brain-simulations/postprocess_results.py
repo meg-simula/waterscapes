@@ -2,7 +2,7 @@ import math
 
 from dolfin import *
 
-prefix = "results_brain/nu_0.4999_formulationtype_standard_solvertype_direct"
+prefix = "results_brain_no_transfer/nu_0.497_formulationtype_standard_solvertype_direct"
 A = 4
 
 mesh = Mesh()
