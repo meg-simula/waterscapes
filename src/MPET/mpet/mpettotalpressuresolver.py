@@ -355,9 +355,15 @@ class MPETTotalPressureSolver(object):
         for L2i in L2: 
             A2 = assemble(lhs(L2i))  
             A.axpy(1.0, A2, False)
+
+        # Apply boundary conditions to matrix once:
+        for bc in bcs:
+            bc.apply(A)
         
         # Create solver
-        solver = LUSolver(A)
+        solver = LUSolver(A, "mumps")
+        solver.parameters['reuse_factorization'] = True 
+
         self.up.assign(self.up_)
 
         while (float(time) < (T - 1.e-9)):
@@ -391,7 +397,7 @@ class MPETTotalPressureSolver(object):
 
             # Apply boundary conditions            
             for bc in bcs:
-                bc.apply(A, b)
+                bc.apply(b)
 
             # Solve
             solver.solve(A, self.up.vector(), b)

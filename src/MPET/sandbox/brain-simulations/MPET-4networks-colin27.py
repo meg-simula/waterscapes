@@ -7,7 +7,7 @@
 
 from __future__ import print_function
 
-__author__ = "Eleonora Piersanti (eleonora@simula.no), 2016-2017"
+__author__ = "Eleonora Piersanti (eleonora@simula.no), 2018"
 __all__ = []
 
 # Modified by Marie E. Rognes, 2018
@@ -262,8 +262,67 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
 
             t_stop = timemodule.time()
         print("Solver time = %0.3g (s)" % (t_stop - t_start))
-    else:
-        pass
+
+    elif formulation_type == "total_pressure":
+        print("Solve with total pressure solver")
+
+        # Initialize solver
+        solver = MPETTotalPressureSolver(problem, params)
+
+        # Set initial conditions: zero displacement at t = 0, and set
+        # pressure initial conditions based on p_bar.
+        VP = solver.up_.function_space()
+        V = VP.sub(0).collapse()
+        assign(solver.up_.sub(0), interpolate(Constant((0.0, 0.0, 0.0)), V))
+        
+        # Initial condition for total pressure
+        Q = VP.sub(1).collapse()
+        p0 = -sum([alpha[i]*problem.p_bar[i] for i in range(A)])
+        assign(solver.up_.sub(1), project(p0, Q))
+
+        Q = VP.sub(2).collapse()
+        assign(solver.up_.sub(2), project(problem.p_bar[0], Q))
+        for i in range(1, A):
+            Q = VP.sub(i+2).collapse()
+            assign(solver.up_.sub(i+2), interpolate(problem.p_bar[i], Q))
+            
+        # Split and store initial solutions
+        solver.up.assign(solver.up_)
+        values = solver.up.split(deepcopy=True)
+        u = values[0]
+        print("u.vector().max() = ", u.vector().max())
+        p = values[1:]
+        fileu_hdf5.write(u, "/u", 0.0)
+        for i in range(A):
+            filep_hdf5[i].write(p[i+1], "/p_%d" % i, 0.0)
+        fileu_pvd << u
+        for i in range(A):
+            filep_pvd[i] << p[i+1]
+                     
+        # Solve away!
+        print("Number of degrees of freedom = ", VP.dim())
+        solutions = solver.solve()
+        
+        t_start = timemodule.time()
+        for (up, t) in solutions:
+            info("t = %g" % t)
+
+            # Split and store solutions 
+            values = up.split(deepcopy=True)
+            u = values[0]
+            p = values[1:]
+            print("u.vector().max() = ", u.vector().max())
+
+            fileu_hdf5.write(u, "/u", t)
+            for i in range(A):
+                filep_hdf5[i].write(p[i+1], "/p_%d" % i, t)
+
+            fileu_pvd << u
+            for i in range(A):
+                filep_pvd[i] << p[i+1]
+
+            t_stop = timemodule.time()
+        print("Solver time = %0.3g (s)" % (t_stop - t_start))
 
     # Close HDF5 files
     fileu_hdf5.close()
@@ -275,7 +334,7 @@ if __name__ == "__main__":
     import sys
 
     nu = 0.497
-    formulation_type = "standard"
+    formulation_type = "total_pressure"
     solver_type = "direct"
     
     # Read mesh and other mesh related input
@@ -283,7 +342,7 @@ if __name__ == "__main__":
 
     # Run simulation
     mpet_solve(mesh, boundaries, T=5.0, dt=0.05,
-               theta=1.0, nu=nu,
+               theta=0.5, nu=nu,
                formulation_type=formulation_type,
                solver_type=solver_type)
 
