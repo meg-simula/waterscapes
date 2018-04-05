@@ -80,10 +80,10 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
     #K =  ['1.57e-05', '0.0375', '0.0375', '0.0375']
 
     # Define transfer coefficient and transfer matrix
-    s_24 = 1.e-3 # s_a->c and vice versa
-    s_43 = 1.e-3 # s_c->v and vice versa
-    s_41 = 1.e-3 # s_c->e and vice versa
-    s_13 = 1.e-3 # s_e->v and vice versa
+    s_24 = 1.0e-6 # s_a->c and vice versa
+    s_43 = 1.0e-6 # s_c->v and vice versa
+    s_41 = 1.0e-6 # s_c->e and vice versa
+    s_13 = 1.0e-6 # s_e->v and vice versa
     S = ((0.0, 0.0, s_13, s_41),
          (0.0, 0.0, 0.0, s_24),
          (s_13, 0.0, 0.0, s_43),
@@ -189,7 +189,7 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
 
     # Define storage for the displacement and the pressures in HDF5
     # format (for post-processing)
-    prefix = "results_brain_transfer1.e-3/nu_" + str(nu)\
+    prefix = "results_brain_transfer_"+ str(s_24) + "/nu_" + str(nu)\
              + "_formulationtype_" + formulation_type\
              + "_solvertype_" + solver_type 
     fileu_hdf5 = HDF5File(MPI.comm_world, prefix + "/u.h5", "w")
@@ -333,18 +333,20 @@ if __name__ == "__main__":
 
     import sys
 
-    nu = 0.497
-    formulation_type = "total_pressure"
+    nus = [0.479, 0.49999]
+    formulation_types = ["standard", "total_pressure"]
     solver_type = "direct"
     
     # Read mesh and other mesh related input
     mesh, boundaries = create_mesh()
 
     # Run simulation
-    mpet_solve(mesh, boundaries, T=5.0, dt=0.05,
-               theta=0.5, nu=nu,
-               formulation_type=formulation_type,
-               solver_type=solver_type)
+    for nu in nus:
+        for formulation_type in formulation_types:
+            mpet_solve(mesh, boundaries, T=5.0, dt=0.05,
+                       theta=0.5, nu=nu,
+                       formulation_type=formulation_type,
+                       solver_type=solver_type)
 
-    # Display some timings
-    list_timings(TimingClear.keep, [TimingType.wall,])
+            # Display some timings
+            list_timings(TimingClear.keep, [TimingType.wall,])
