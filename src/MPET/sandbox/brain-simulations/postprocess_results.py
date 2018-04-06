@@ -2,11 +2,15 @@ import math
 import os
 from dolfin import *
 
-directories = os.listdir("results_brain_transfer_1e-06")
+# directories = os.listdir("results_brain_transfer_1e-06")
+# directories = ["nu_0.4999theta_1.0_formulationtype_standard_solvertype_direct",\
+#                "nu_0.4999theta_1.0_formulationtype_total_pressure_solvertype_direct" ]
+
+directories = ["nu_0.4999_theta_1.0_dt_0.0125_formulationtype_total_pressure_solvertype_direct"]
 
 for d in directories:
     prefix = "results_brain_transfer_1e-06/" + d
-
+    print("prefix = ", prefix)
     A = 4
 
     mesh = Mesh()
@@ -24,7 +28,7 @@ for d in directories:
     u = Function(V)
     p = Function(Q)
 
-    M = 100
+    M = 80
 
     p0 = Point(89.9, 108.9, 82.3)  # "Origin"
     p1 = Point(102.2, 139.3, 82.3) # Point in the center z-plane, near "butterfly"
@@ -68,13 +72,13 @@ for d in directories:
                 
     import pylab
     import matplotlib
-    matplotlib.rcParams["lines.linewidth"] = 2
-    matplotlib.rcParams["axes.linewidth"] = 2
-    matplotlib.rcParams["axes.labelsize"] = "x-large"
+    matplotlib.rcParams["lines.linewidth"] = 3
+    matplotlib.rcParams["axes.linewidth"] = 3
+    matplotlib.rcParams["axes.labelsize"] = "xx-large"
     matplotlib.rcParams["grid.linewidth"] = 1
-    matplotlib.rcParams["xtick.labelsize"] = "x-large"
-    matplotlib.rcParams["ytick.labelsize"] = "x-large"
-    matplotlib.rcParams["legend.fontsize"] = "x-large"
+    matplotlib.rcParams["xtick.labelsize"] = "xx-large"
+    matplotlib.rcParams["ytick.labelsize"] = "xx-large"
+    matplotlib.rcParams["legend.fontsize"] = "xx-large"
 
     pylab.figure(figsize=(8, 8))
     pylab.plot(times, u_values[0], label="x_0")
@@ -82,8 +86,9 @@ for d in directories:
     pylab.plot(times, u_values[2], label="x_2")
     pylab.legend()
     pylab.grid(True)
-    pylab.xlabel("t (s)")
-    pylab.ylabel("(mm)")
+    pylab.xlabel("t (s)", fontsize=20)
+    pylab.ylabel("(mm)", fontsize=20)
+    # pylab.xticks(fontsize = 20) 
     #pylab.savefig("u_mag.png")
     pylab.savefig(prefix+"/u_mag.png")
 
@@ -92,13 +97,14 @@ for d in directories:
 
     for a in range(A):
         pylab.figure(figsize=(8,8))
-        pylab.plot(times, [i*Pa2mmHg for i in p_values[a][0]], linewidth=2, label="x_0")
-        pylab.plot(times, [i*Pa2mmHg for i in p_values[a][1]], linewidth=2, label="x_1")
-        pylab.plot(times, [i*Pa2mmHg for i in p_values[a][2]], linewidth=2, label="x_2")
+        pylab.plot(times, [i*Pa2mmHg for i in p_values[a][0]], label="x_0")
+        pylab.plot(times, [i*Pa2mmHg for i in p_values[a][1]], label="x_1")
+        pylab.plot(times, [i*Pa2mmHg for i in p_values[a][2]], label="x_2")
         pylab.legend()
         pylab.grid(True)
-        pylab.xlabel("t (s)", fontsize=16)
-        pylab.ylabel("(mmHg)", fontsize=16)
+        pylab.xlabel("t (s)", fontsize=20)
+        pylab.ylabel("(mmHg)", fontsize=20)
+        # pylab.xticks(fontsize = 20)
         #pylab.savefig("p%d.png" % a)
         pylab.savefig(prefix+"/p%d.png" % a)
     x

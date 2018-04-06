@@ -190,7 +190,7 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
     # Define storage for the displacement and the pressures in HDF5
     # format (for post-processing)
     prefix = "results_brain_transfer_"+ str(s_24) + "/nu_" + str(nu)\
-             + "_formulationtype_" + formulation_type\
+             +"_theta_" + str(theta) +"_dt_" + str(dt) + "_formulationtype_" + formulation_type\
              + "_solvertype_" + solver_type 
     fileu_hdf5 = HDF5File(MPI.comm_world, prefix + "/u.h5", "w")
     filep_hdf5 = [HDF5File(MPI.comm_world, prefix + "/p%d.h5" % (i+1), "w")
@@ -333,7 +333,7 @@ if __name__ == "__main__":
 
     import sys
 
-    nus = [0.479, 0.49999]
+    nus = [0.4999]
     formulation_types = ["standard", "total_pressure"]
     solver_type = "direct"
     
@@ -343,7 +343,7 @@ if __name__ == "__main__":
     # Run simulation
     for nu in nus:
         for formulation_type in formulation_types:
-            mpet_solve(mesh, boundaries, T=5.0, dt=0.05,
+            mpet_solve(mesh, boundaries, T=10.0, dt=0.0125,
                        theta=0.5, nu=nu,
                        formulation_type=formulation_type,
                        solver_type=solver_type)
