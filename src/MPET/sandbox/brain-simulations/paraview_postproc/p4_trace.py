@@ -42,8 +42,18 @@ for d in directories:
 		f_623LUTColorBar.ComponentTitle = '(Pa)'
 		f_623LUTColorBar.TitleColor = [0.0, 0.0, 0.0]
 		f_623LUTColorBar.LabelColor = [0.0, 0.0, 0.0]
-		f_623LUTColorBar.RangeLabelFormat = '%-#3.2f'
-
+		f_623LUTColorBar.RangeLabelFormat = '%-#3.0f'
+		f_623LUTColorBar.RangeLabelFormat = '%.0f'
+		f_623LUTColorBar.AutomaticLabelFormat = 0
+		f_623LUTColorBar.TitleFontSize = 16
+		f_623LUTColorBar.LabelFontSize = 18
+		f_623LUTColorBar.LabelFormat = '%0.f'
+		f_623LUTColorBar.TitleFontFamily = 'Times'
+		f_623LUTColorBar.LabelFontFamily = 'Times'
+		f_623LUTColorBar.LabelFormat = ''
+		f_623LUTColorBar.DrawTickMarks = 0	
+		f_623LUTColorBar.AddRangeLabels = 1
+		
 		# Apply a preset using its name. Note this may not work as expected when presets have duplicate names.
 		f_623LUT.ApplyPreset('Reds', True)
 		# invert the transfer function

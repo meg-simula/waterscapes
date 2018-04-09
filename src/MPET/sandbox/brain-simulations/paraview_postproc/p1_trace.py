@@ -41,7 +41,16 @@ for d in directories:
 		f_623LUTColorBar.ComponentTitle = '(Pa)'
 		f_623LUTColorBar.TitleColor = [0.0, 0.0, 0.0]
 		f_623LUTColorBar.LabelColor = [0.0, 0.0, 0.0]
-		f_623LUTColorBar.RangeLabelFormat = '%-#3.2f'
+		f_623LUTColorBar.RangeLabelFormat = '%.0f'
+		f_623LUTColorBar.AutomaticLabelFormat = 0
+		f_623LUTColorBar.TitleFontSize = 16
+		f_623LUTColorBar.LabelFontSize = 18
+		f_623LUTColorBar.LabelFormat = '%0.f'
+		f_623LUTColorBar.TitleFontFamily = 'Times'
+		f_623LUTColorBar.LabelFontFamily = 'Times'
+		f_623LUTColorBar.LabelFormat = ''
+		f_623LUTColorBar.DrawTickMarks = 0	
+		f_623LUTColorBar.AddRangeLabels = 1
 		# Apply a preset using its name. Note this may not work as expected when presets have duplicate names.
 		f_623LUT.ApplyPreset('Blues', True)
 		# invert the transfer function
@@ -126,7 +135,7 @@ for d in directories:
 		# Hide orientation axes
 		renderView1.OrientationAxesVisibility = 0
         # Data Range
-		datarange = slice1.PointData.GetArray(0).GetRange()
+		datarange = p1pvd.PointData.GetArray(0).GetRange()
 		print("datarange = ", datarange)
 		f_623LUT.RescaleTransferFunction(datarange[0], datarange[1])
 		# update the view to ensure updated data information

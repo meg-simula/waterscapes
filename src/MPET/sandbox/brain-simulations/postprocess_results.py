@@ -7,7 +7,7 @@ from dolfin import *
 #                "nu_0.4999theta_1.0_formulationtype_total_pressure_solvertype_direct" ]
 
 directories = ["/nu_0.4999_theta_0.5_dt_0.0125_formulationtype_standard_solvertype_direct/",\
-               "/nu_0.4999_theta_0.5_dt_0.0125_formulationtype_total_pressure_solvertype_direct/",]
+               "/nu_0.4999_theta_0.5_dt_0.0125_formulationtype_total_pressure_solvertype_direct/"]
 
 for d in directories:
     prefix = "results_brain_transfer_1e-06/" + d
@@ -81,7 +81,7 @@ for d in directories:
     matplotlib.rcParams["ytick.labelsize"] = "xx-large"
     matplotlib.rcParams["legend.fontsize"] = "xx-large"
 
-    pylab.figure(figsize=(8, 8))
+    pylab.figure(figsize=(9, 8))
     pylab.plot(times, u_values[0], label="x_0")
     pylab.plot(times, u_values[1], label="x_1")
     pylab.plot(times, u_values[2], label="x_2")
@@ -98,7 +98,7 @@ for d in directories:
     Pa2mmHg = 1.0/mmHg2Pa
 
     for a in range(A):
-        pylab.figure(figsize=(8,8))
+        pylab.figure(figsize=(9, 8))
         pylab.plot(times, [i*Pa2mmHg for i in p_values[a][0]], label="x_0")
         pylab.plot(times, [i*Pa2mmHg for i in p_values[a][1]], label="x_1")
         pylab.plot(times, [i*Pa2mmHg for i in p_values[a][2]], label="x_2")
@@ -109,4 +109,3 @@ for d in directories:
         # pylab.xticks(fontsize = 20)
         #pylab.savefig("p%d.png" % a)
         pylab.savefig(prefix+"/p%d.png" % a)
-    x
