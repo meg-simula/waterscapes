@@ -129,7 +129,7 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
     delta = 0.012 
 
     # NB: Function evaluation of chi_v may be slow here.
-    p_e = Expression("mmHg2Pa*(5.0 + 2*sin(2*pi*t) + d*sin(2*pi*t)*chi_v)",
+    p_e = Expression("mmHg2Pa*(3.0 + 2*sin(2*pi*t) + d*sin(2*pi*t)*chi_v)",
                      d=delta, mmHg2Pa=mmHg2Pa, t=time, chi_v=chi_v, degree=0)
     # --------------------------------------------------------------
     
@@ -190,8 +190,10 @@ def mpet_solve(mesh, boundaries, T=1.0, dt=0.1,
     # Define storage for the displacement and the pressures in HDF5
     # format (for post-processing)
     prefix = "results_brain_transfer_"+ str(s_24) + "/nu_" + str(nu)\
-             +"_theta_" + str(theta) +"_dt_" + str(dt) + "_formulationtype_" + formulation_type\
-             + "_solvertype_" + solver_type 
+           + "_pe_baseline" + str(3)\
+           + "_theta_" + str(theta) +"_dt_" + str(dt)\
+           + "_formulationtype_" + formulation_type\
+           + "_solvertype_" + solver_type 
     fileu_hdf5 = HDF5File(MPI.comm_world, prefix + "/u.h5", "w")
     filep_hdf5 = [HDF5File(MPI.comm_world, prefix + "/p%d.h5" % (i+1), "w")
                   for i in range(A)]
@@ -343,7 +345,7 @@ if __name__ == "__main__":
     # Run simulation
     for nu in nus:
         for formulation_type in formulation_types:
-            mpet_solve(mesh, boundaries, T=10.0, dt=0.0125,
+            mpet_solve(mesh, boundaries, T=3.0, dt=0.0125,
                        theta=0.5, nu=nu,
                        formulation_type=formulation_type,
                        solver_type=solver_type)

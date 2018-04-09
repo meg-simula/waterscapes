@@ -6,7 +6,8 @@ from dolfin import *
 # directories = ["nu_0.4999theta_1.0_formulationtype_standard_solvertype_direct",\
 #                "nu_0.4999theta_1.0_formulationtype_total_pressure_solvertype_direct" ]
 
-directories = ["nu_0.4999_theta_1.0_dt_0.0125_formulationtype_total_pressure_solvertype_direct"]
+directories = ["/nu_0.4999_theta_0.5_dt_0.0125_formulationtype_standard_solvertype_direct/",\
+               "/nu_0.4999_theta_0.5_dt_0.0125_formulationtype_total_pressure_solvertype_direct/",]
 
 for d in directories:
     prefix = "results_brain_transfer_1e-06/" + d
@@ -28,7 +29,7 @@ for d in directories:
     u = Function(V)
     p = Function(Q)
 
-    M = 80
+    M = 240
 
     p0 = Point(89.9, 108.9, 82.3)  # "Origin"
     p1 = Point(102.2, 139.3, 82.3) # Point in the center z-plane, near "butterfly"
@@ -88,6 +89,7 @@ for d in directories:
     pylab.grid(True)
     pylab.xlabel("t (s)", fontsize=20)
     pylab.ylabel("(mm)", fontsize=20)
+    pylab.ylim([0,0.053])
     # pylab.xticks(fontsize = 20) 
     #pylab.savefig("u_mag.png")
     pylab.savefig(prefix+"/u_mag.png")

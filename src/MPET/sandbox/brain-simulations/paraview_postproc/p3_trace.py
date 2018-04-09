@@ -4,8 +4,8 @@ import os
 #### disable automatic camera reset on 'Show'
 root = '/home/eleonora/Repositories/waterscapes/src/MPET/sandbox/brain-simulations/results_brain_transfer_1e-06/'
 # directories = os.listdir(root)
-directories = ["nu_0.4999theta_1.0_formulationtype_standard_solvertype_direct",\
-               "nu_0.4999theta_1.0_formulationtype_total_pressure_solvertype_direct" ]
+directories = ["nu_0.4999_theta_0.5_dt_0.0125_formulationtype_total_pressure_solvertype_direct"]
+
 for d in directories:
 	try:
 		# create a new 'PVD Reader'
@@ -16,7 +16,7 @@ for d in directories:
 		# get animation scene
 		animationScene1 = GetAnimationScene()
 		# t = 4.50s
-		animationScene1.AnimationTime = 90.0
+		animationScene1.AnimationTime = 180.0
 		# update animation scene based on data timesteps
 		animationScene1.UpdateAnimationUsingDataTimeSteps()
 
@@ -29,7 +29,7 @@ for d in directories:
 		p3pvdDisplay = Show(p3pvd, renderView1)
 		# get color transfer function/color map for arrayname
 		f_623LUT = GetColorTransferFunction(arrayname)
-		f_623LUTColorBar = GetScalarBar(f_623LUT, renderVi ew1)
+		f_623LUTColorBar = GetScalarBar(f_623LUT, renderView1)
 		f_623LUTColorBar.AutoOrient = 1
 		f_623LUTColorBar.Orientation = 'Vertical'
 		f_623LUTColorBar.Position = [0.8709429280397022, 0.5967540574282147]
@@ -37,6 +37,14 @@ for d in directories:
 		f_623LUTColorBar.TitleOpacity = 1.0
 		f_623LUTColorBar.LabelColor = [0.0, 0.0, 0.0]
 		f_623LUTColorBar.LabelOpacity = 1.0
+		# Properties modified on f_620LUTColorBar
+		f_623LUTColorBar.Position = [0.8709429280397022, 0.5067540574282147]
+		f_623LUTColorBar.Title = 'p_3'
+		f_623LUTColorBar.ComponentTitle = '(Pa)'
+		f_623LUTColorBar.TitleColor = [0.0, 0.0, 0.0]
+		f_623LUTColorBar.LabelColor = [0.0, 0.0, 0.0]
+		f_623LUTColorBar.RangeLabelFormat = '%-#3.2f'
+
 		# Apply a preset using its name. Note this may not work as expected when presets have duplicate names.
 		f_623LUT.ApplyPreset('erdc_red2purple_BW', True)
 		# invert the transfer function
@@ -118,8 +126,6 @@ for d in directories:
 		# Hide orientation axes
 		renderView1.OrientationAxesVisibility = 0
         # Data Range
-        datarange = p3pvd.PointData.GetArray(0).GetRange()
-		f_623LUT.RescaleTransferFunction(datarange[0], datarange[1])
 		# update the view to ensure updated data information
 		renderView1.Update()
 		SaveScreenshot(path + "p3_snap.png", renderView1)
