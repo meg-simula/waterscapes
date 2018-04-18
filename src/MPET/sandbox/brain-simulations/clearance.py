@@ -6,24 +6,35 @@ directories = ["/nu_0.4999_theta_0.5_dt_0.0125_formulationtype_standard_solverty
                "/nu_0.4999_theta_0.5_dt_0.0125_formulationtype_total_pressure_solvertype_direct/"]
 
 for d in directories:
-    prefix = "results_brain_transfer_1e-06/" + d
-    print("prefix = ", prefix)
 
+    prefix = "results_brain_transfer_1e-06/" + d
+    A = 4
     mesh = Mesh()
     D = mesh.topology().dim()
     file = HDF5File(MPI.comm_world, "colin27_coarse_boundaries.h5", "r")
     file.read(mesh, "/mesh", False)
 
-    filep_e = HDF5File(MPI.comm_world, prefix + "/p1.h5", "r")
-    os.remove(prefix + "/v_e.xdmf")
-    os.remove(prefix + "/v_e.h5")
-    filev_e = XDMFFile(MPI.comm_world, prefix + "/v_e.xdmf")
+    filep = [HDF5File(MPI.comm_world, prefix + "/p%d.h5" % (i+1), "r")
+             for i in range(A)]
+
+    # for i in range(A):
+    #     os.remove(prefix + "/v_" + str(i+1) +".xdmf")
+    #     os.remove(prefix + "/v_" + str(i+1) +".h5")
+
+    filev = [XDMFFile(MPI.comm_world, prefix + "/v_"+ str(i+1) +".xdmf")
+             for i in range(A)]
     
     Q = FunctionSpace(mesh, "CG", 1)
+    p = Function(Q)
     DG = VectorFunctionSpace(mesh, "DG", 0)
 
-    K_e = 1.4e-14/8.9e-4*1.0e6
-    p_e = Function(Q)
+    kappa = (1.4e-14, 1.e-10, 1.e-10, 1.e-10) # Vardakis et al, 2016, Oedema
+    eta = (8.9e-4, 2.67e-3, 2.67e-3, 2.67e-3)
+    scaling = 1.e6 # Scaling from Vardakis values to mm, g, s
+
+    K = [kappa[i]/eta[i]*scaling for i in range(4)]
+
+
     M = 240
 
     p0 = Point(89.9, 108.9, 82.3)  # "Origin"
@@ -32,25 +43,31 @@ for d in directories:
                
     points = [p0, p1, p2]
 
-    v_values = [[], [], []]
-    times = []
+    v_values = [None for i in range(A)]
+    for i in range(A):
+        v_values[i] = [[], [], []]
 
+    dt = 0.0125
+    times = []
     for i in range(M):
 
-        attribute_name = "/p_0/vector_%d" % i
-        filep_e.read(p_e, attribute_name)
-        v_e = project(-K_e*grad(p_e), DG)
-        t = filep_e.attributes(attribute_name)["timestamp"]
+        t = i*dt
         times += [t]
-        filev_e.write_checkpoint(v_e, "v_e", i)
+        print("t = ", t)
 
-        for (k, x) in enumerate(points):
-            v_x = v_e(x)
-            v_mag = math.sqrt(sum(v**2 for v in v_x))
-            print("v_mag = ", v_mag)
-            v_values[k] += [v_mag]
+        # Evaluate clearance from pressures
+        for a in range(A):
+            attribute_name = "/p_%d/vector_%d" % (a, i)
+            filep[a].read(p, attribute_name)
+            v = project(-K[a]*grad(p), DG)
+            filev[a].write_checkpoint(v, "v_%d" %a, t)
+            for (k, x) in enumerate(points):
+                v_x = v(x)
+                v_mag = math.sqrt(sum(vv**2 for vv in v_x))
+                print("v_%d_mag(x) = " % a, v_mag)
+                v_values[a][k] += [v_mag]
 
-    print("v_values", v_values)            
+                
     import pylab
     import matplotlib
     matplotlib.rcParams["lines.linewidth"] = 3
@@ -60,14 +77,18 @@ for d in directories:
     matplotlib.rcParams["xtick.labelsize"] = "xx-large"
     matplotlib.rcParams["ytick.labelsize"] = "xx-large"
     matplotlib.rcParams["legend.fontsize"] = "xx-large"
-
-    pylab.figure(figsize=(9, 8))
-    pylab.plot(times, v_values[0], label="x_0")
-    pylab.plot(times, v_values[1], label="x_1")
-    pylab.plot(times, v_values[2], label="x_2")
-    pylab.legend()
-    pylab.grid(True)
-    pylab.xlabel("t (s)", fontsize=20)
-    pylab.ylabel("(mm)", fontsize=20)
-    pylab.savefig(prefix+"/ve_mag.png")
-
+    
+    for a in range(A):
+        print (v_values[a][0])
+        pylab.figure(figsize=(11, 8))
+        pylab.plot(times, v_values[a][0], label="x_0")
+        pylab.plot(times, v_values[a][1], label="x_1")
+        pylab.plot(times, v_values[a][2], label="x_2")
+        pylab.legend()
+        pylab.grid(True)
+        pylab.xlabel("t (s)", fontsize=20)
+        pylab.ylabel("(mm/s)", fontsize=20)
+        # pylab.xticks(fontsize = 20)
+        #pylab.savefig("p%d.png" % a)
+        pylab.savefig(prefix+"/v%d.png" % (a+1))
+        pylab.close()

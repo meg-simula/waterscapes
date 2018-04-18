@@ -296,7 +296,7 @@ class MPETSolver(object):
             mu = E/(2.0*((1.0 + nu)))
             pu = mu * inner(grad(u), grad(v))*dx() 
             pp = sum([c[i]*p[i]*w[i]*dx() + dt*theta* K[i]*inner(grad(p[i]), grad(w[i]))*dx() \
-                      + dt*theta*S[i][i]*p[i]*w[i]*dx() for i in As])
+                      + sum([dt*theta*S[i][j] for j in list(As[:i])+list(As[i+1:])])*p[i]*w[i]*dx() for i in As])
             P += pu + pp
 
         # Add orthogonality versus rigid motions if nullspace for the
@@ -546,7 +546,7 @@ class MPETSolver(object):
             niter = solver.solve(self.up.vector(), b)
             
             # Yield solution and time
-            yield self.up, float(time)
+            yield self.up, float(time), niter
 
             # Update previous solution up_ with current solution up
             self.up_.assign(self.up)
