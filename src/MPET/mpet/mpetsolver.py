@@ -546,7 +546,7 @@ class MPETSolver(object):
             niter = solver.solve(self.up.vector(), b)
             
             # Yield solution and time
-            yield self.up, float(time), niter
+            yield self.up, float(time)
 
             # Update previous solution up_ with current solution up
             self.up_.assign(self.up)
