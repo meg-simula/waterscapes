@@ -131,8 +131,9 @@ class MPETSolver(object):
         if params is not None:
             self.params.update(params)
 
+        self.solver_monitor = {}
         # Initialize variational forms and store
-        a, a_robin, L, L0, L1, P, up_, up = self.create_variational_forms()
+        a, a_robin, L, L0, L1, prec, up_, up = self.create_variational_forms()
 
         self.a = a             # Main left-hand side form
         self.a_robin = a_robin # List of left-hand side forms for Robin boundary conditions
@@ -143,7 +144,7 @@ class MPETSolver(object):
         self.up_ = up_         # Solution at previous time step
         self.up = up           # Solution at current time step
 
-        self.P = P
+        self.prec = prec
 
     def create_dirichlet_bcs(self):
         """Extract information about Dirichlet boundary conditions from given
@@ -178,6 +179,7 @@ class MPETSolver(object):
         params.add("u_degree", 2)
         params.add("p_degree", 1)
         params.add("direct_solver", True)
+        params.add("testing", False)
         return params
 
     def create_variational_forms(self):
@@ -290,14 +292,14 @@ class MPETSolver(object):
                    for i in As])*dx() 
 
         # Define form for preconditioner
-        P = 0
+        prec = 0
         if not self.params["direct_solver"]:
             info("Defining preconditioner")
             mu = E/(2.0*((1.0 + nu)))
             pu = mu * inner(grad(u), grad(v))*dx() 
             pp = sum([c[i]*p[i]*w[i]*dx() + dt*theta* K[i]*inner(grad(p[i]), grad(w[i]))*dx() \
                       + sum([dt*theta*S[i][j] for j in list(As[:i])+list(As[i+1:])])*p[i]*w[i]*dx() for i in As])
-            P += pu + pp
+            prec += pu + pp
 
         # Add orthogonality versus rigid motions if nullspace for the
         # displacement
@@ -305,7 +307,7 @@ class MPETSolver(object):
             F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
                  + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
             if not self.params["direct_solver"]:     
-                P += sum(z[i]*r[i]*dx() for i in range(dimZ)) + inner(u,v)*dx() 
+                prec += sum(z[i]*r[i]*dx() for i in range(dimZ)) + inner(u,v)*dx() 
             
         # Add orthogonality versus constants if nullspace for the
         # displacement
@@ -315,7 +317,7 @@ class MPETSolver(object):
                 if p_nullspace:
                     F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
                     if not self.params["direct_solver"]:
-                        P += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx() 
+                        prec += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx() 
                     i += 1
                     
         # Add body force and traction boundary condition for momentum
@@ -354,7 +356,7 @@ class MPETSolver(object):
         a = lhs(F)
         L = rhs(F)
 
-        return a, a_robin, L, L0, L1, P, up_, up
+        return a, a_robin, L, L0, L1, prec, up_, up
 
     def solve(self):
         """Solve the given MPET problem to the end time given by the parameter
@@ -477,7 +479,7 @@ class MPETSolver(object):
         L = self.L
         L0 = self.L0
         L1 = self.L1
-        prec = self.P
+        prec = self.prec
 
         # Create essential bcs
         [bcs0, bcs1] = self.create_dirichlet_bcs()
@@ -498,10 +500,13 @@ class MPETSolver(object):
 
         # Create KrylovSolver
         solver = PETScKrylovSolver("minres", "hypre_amg")
-
+        self.solver_monitor["niter"] = []
         # Assign initial conditions (in up_) to current solution as a
         # good starting guess for iterative solver
-        self.up.assign(self.up_)
+        if self.params["testing"]:
+            self.up.vector()[:] = random.randn(self.up.vector().size())     
+        else:
+            self.up.assign(self.up_)
 
         while (float(time) < (T - 1.e-9)):
 
@@ -544,6 +549,7 @@ class MPETSolver(object):
 
             # Solve
             niter = solver.solve(self.up.vector(), b)
+            self.solver_monitor["niter"] += [niter]
             
             # Yield solution and time
             yield self.up, float(time)
@@ -554,4 +560,6 @@ class MPETSolver(object):
             # Update time
             time.assign(t1)
 
+        self.solver_monitor["P"] = P
+        self.solver_monitor["A"] = Acopy
     

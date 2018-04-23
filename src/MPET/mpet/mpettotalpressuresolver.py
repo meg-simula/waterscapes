@@ -103,19 +103,20 @@ class MPETTotalPressureSolver(object):
     def __init__(self, problem, params=None):
         "Create solver with given MPET problem and parameters."
         self.problem = problem
-        self.condition_number = None
+        self.monitor = False
+        self.solver_monitor = {}
         # Update parameters if given
         self.params = self.default_params()
         if params is not None:
             self.params.update(params)
 
         # Initialize objects and store
-        F, L0, L1, L2, P, up_, up = self.create_variational_forms()
+        F, L0, L1, L2, prec, up_, up = self.create_variational_forms()
         self.F = F
         self.L0 = L0
         self.L1 = L1
         self.L2 = L2
-        self.P = P
+        self.prec = prec
         self.up_ = up_
         self.up = up
     
@@ -272,14 +273,14 @@ class MPETTotalPressureSolver(object):
             + sum([sum([-dt*S[i][j]*(pm[i+1] - pm[j+1])*w[i+1] for j in As]) \
                     for i in As])*dx() \
 
-        P = 0
+        prec = 0
         if not self.params["direct_solver"]:
             # Define preconditioner form:
             pu = mu * inner(grad(u), grad(v))*dx()
             pp = sum(alpha[i]*alpha[i]/lmbda*p[i+1]*w[i+1]*dx() + dt*theta*K[i]*inner(grad(p[i+1]), grad(w[i+1]))*dx() \
                     + (c[i] + sum([dt*theta*S[i][j] for j in list(As[:i])+list(As[i+1:])]))*p[i+1]*w[i+1]*dx() for i in As)
             ppt = p[0]*w[0]*dx()
-            P = pu + pp + ppt
+            prec = pu + pp + ppt
             
         # Add orthogonality versus rigid motions if nullspace for the
         # displacement
@@ -290,8 +291,8 @@ class MPETTotalPressureSolver(object):
             if not self.params["direct_solver"]:
                 # Since there are no bc on u I need to make the
                 # preconditioner pd adding a mass matrix
-                P += inner(u, v)*dx()
-                P += sum(z[i]*r[i]*dx() for i in range(dimZ))
+                prec += inner(u, v)*dx()
+                prec += sum(z[i]*r[i]*dx() for i in range(dimZ))
 
         # Add orthogonality versus constants if nullspace for the
         # displacement
@@ -301,7 +302,7 @@ class MPETTotalPressureSolver(object):
                 if p_nullspace:
                     F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
                     if not self.params["direct_solver"]:
-                        P += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx()  
+                        prec += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx()  
                     i += 1
         
         # Add body force and traction boundary condition for momentum equation
@@ -324,7 +325,7 @@ class MPETTotalPressureSolver(object):
         # Set solution field(s)
         up = Function(VW)
         
-        return F, L0, L1, L2, P, up_, up
+        return F, L0, L1, L2, prec, up_, up
 
     def solve_direct(self):
         """Solve given MPET problem, yield solutions at each time step.
@@ -343,7 +344,7 @@ class MPETTotalPressureSolver(object):
         L0 = self.L0
         L1 = self.L1
         L2 = self.L2
-        P = self.P
+        prec = self.prec
         # Extract essential bcs
         [bcs0, bcs1] = self.create_dirichlet_bcs()
         bcs = bcs0 + bcs1
@@ -428,7 +429,7 @@ class MPETTotalPressureSolver(object):
         L0 = self.L0
         L1 = self.L1
         L2 = self.L2
-        P = self.P
+        prec = self.prec
         # Extract essential bcs
         [bcs0, bcs1] = self.create_dirichlet_bcs()
         bcs = bcs0 + bcs1
@@ -441,27 +442,14 @@ class MPETTotalPressureSolver(object):
             A.axpy(1.0, A2, False)
         
         # Create solver
-        PP = assemble(P)
+        P = assemble(prec)
         for bc in bcs:
-            apply_symmetric(bc, PP)
+            apply_symmetric(bc, P)
 
         solver = PETScKrylovSolver("minres", "hypre_amg")
-        
+        self.solver_monitor["niter"] = []       
         if self.params["testing"]:
-            print("eigenvalue problem")
-            eigensolver = SLEPcEigenSolver(as_backend_type(A), as_backend_type(PP))
-            eigensolver.parameters['tolerance'] = 1e-6
-            eigensolver.parameters['maximum_iterations'] = 10000
-
-            eigensolver.parameters['spectrum'] = 'largest magnitude'
-            eigensolver.solve(1)
-            emax = eigensolver.get_eigenvalue(0)
-            eigensolver.parameters['spectrum'] = 'smallest magnitude'
-            eigensolver.solve(1)
-            emin = eigensolver.get_eigenvalue(0)
-            self.condition_number = sqrt(emax[0]**2 + emax[1]**2)/sqrt(emin[0]**2 + emin[1]**2)
-
-            self.up.vector()[:] = random.randn(self.up.vector().array().size)
+            self.up.vector()[:] = random.randn(self.up.vector().size())
         else:        
             # Start with up as up_, can help Krylov Solvers
             self.up.assign(self.up_)
@@ -502,8 +490,10 @@ class MPETTotalPressureSolver(object):
                 apply_symmetric(bc, Acopy, b)
 
             # Solve
-            solver.set_operators(Acopy, PP)
+            solver.set_operators(Acopy, P)
             niter = solver.solve(self.up.vector(), b)
+            self.solver_monitor["niter"] += [niter]
+
             # Yield solution and time
             yield self.up, float(time)
             # Update previous solution up_ with current solution up
@@ -511,6 +501,9 @@ class MPETTotalPressureSolver(object):
 
             # Update time
             time.assign(t)
+
+        self.solver_monitor["P"] = P
+        self.solver_monitor["A"] = Acopy
 
 
     def solve(self):
