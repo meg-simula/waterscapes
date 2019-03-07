@@ -363,7 +363,6 @@ class MPETTotalPressureSolver(object):
         
         # Create solver
         solver = LUSolver(A, "mumps")
-        solver.parameters['reuse_factorization'] = True 
 
         self.up.assign(self.up_)
 
