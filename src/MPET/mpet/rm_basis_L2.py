@@ -69,6 +69,6 @@ def rigid_motions(mesh):
                                degree=1)
         # Roations are discrebed as rot around v-axis centered in center of
         # gravity 
-        rotations = map(rot_axis_v, zip(eigv, eigw))
+        rotations = list(map(rot_axis_v, zip(eigv, eigw)))
    
         return translations + rotations
