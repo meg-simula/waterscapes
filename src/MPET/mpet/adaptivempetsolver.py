@@ -14,7 +14,6 @@ class AdaptiveMPETSolver(MPETSolver):
     """
 
     """
-
     def __init__(self, problem, params=None):
         "Create solver with given MPET problem and parameters."
         self.problem = problem
@@ -23,8 +22,13 @@ class AdaptiveMPETSolver(MPETSolver):
         if params is not None:
             self.params.update(params)
 
-        (a, L, up) = self.create_variational_forms()
-            
+        # Define variational forms and unknown(s)
+        self.create_variational_forms()
+
+        # Define and set Dirichlet boundary conditions
+        [bcs0, bcs1] = self.create_dirichlet_bcs()
+        self.bcs = bcs0 + bcs1
+        
     @staticmethod
     def default_params():
         "Define default solver parameters."
@@ -35,7 +39,7 @@ class AdaptiveMPETSolver(MPETSolver):
         return params
 
     def create_variational_forms(self):
-        "."
+        "Create and return tuple of variational forms and unknown field: (a, L, up)."
         
         # Extract mesh from problem
         mesh = self.problem.mesh
@@ -114,22 +118,27 @@ class AdaptiveMPETSolver(MPETSolver):
         # for continuity equations.
         dsc = []
         info("Defining contributions from Neumann boundary conditions")
+
+        L1s = []
         for a in As:
             markers = self.problem.continuity_boundary_markers[a]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
 
-            # Subtract Neumann contribution from F
-            F -= dt*g[a]*w[a]*dx() + dt*I[a]*w[a]*dsc[a](NEUMANN_MARKER)
+            # Source and Neumann contributions
+            L1s += [dt*g[a]*w[a]*dx() + dt*I[a]*w[a]*dsc[a](NEUMANN_MARKER)]
 
-        # Define function for current solution
-        up = Function(VW)
+        # Define and set function for current and previous solution
+        self.up = Function(VW)
+        self.up_ = up_
 
-        # Just split main form F here into a and L
-        a = lhs(F)
-        L = rhs(F)
-
-        return a, L, up
-
+        # Split main form F here into a and L and store L1s
+        self.a = lhs(F)
+        self.L = rhs(F) 
+        self.L1s = L1s
+        
+        # Set time step for access
+        self.dt = dt
+        
     def step(self, dt):
         """Solve the given MPET problem from the current time with time step
         'dt'. Users must set 'up_' to the correct initial conditions
@@ -140,76 +149,28 @@ class AdaptiveMPETSolver(MPETSolver):
         # Extract parameters related to the time-stepping
         time = self.problem.time
 
-        # Extract relevant variational forms
-        a = self.a
-        a_robin = self.a_robin
-        L = self.L
-        L0 = self.L0
-        L1 = self.L1
-
+        # Update value of timestep dt
+        self.dt.assign(dt)
+        
         # Create essential bcs
         [bcs0, bcs1] = self.create_dirichlet_bcs()
         bcs = bcs0 + bcs1
-        
-        # Assemble left-hand side matrix including Robin
-        # terms. (Design due to missing FEniCS feature of assembling
-        # integrals of same type with different subdomains.)
-        A = assemble(a)  
-        for a_a in a_robin:
-            A_a = assemble(a_a)
-            A.axpy(1.0, A_a, False) 
-        
-        # Apply boundary conditions to matrix once:
+
+        # Update time to t0 + theta*dt
+        time.assign(float(time) + float(dt))
+
+        # Assemble and solve
+        A = assemble(self.a)
+        b = assemble(self.L)
+
+        for L1 in self.L1s:
+            b1 = assemble(L1)
+            b.axpy(1.0, b1)
+            
         for bc in bcs:
-            bc.apply(A)
-        
-        # Create LU solver and reuse LU factorization
-        solver = LUSolver(A, "mumps")
-        
-        while (float(time) < (T - 1.e-9)):
+            bc.apply(A, b)
 
-            # Times defining the time interval (for readability)
-            t0 = float(time)
-            t_theta = t0 + theta*float(dt)
-            t1 = t0 + float(dt)
-            
-            # 1. Assemble the parts of right-hand side forms (i.e. L)
-            # that does not depend on time explicitly
-            b = assemble(L)  
-
-            # Update time to t0 + theta*dt
-            time.assign(t_theta)                
-
-            # 2. Assemble time-dependent rhs for parabolic equations
-            # and add to right-hand side vector b
-            for l in L1: 
-                b_l = assemble(l)  
-                b.axpy(1.0, b_l)
-
-            # Update time to t1:
-            time.assign(t1)
-            
-            # 3. Assemble time-dependent rhs for elliptic equations
-            b0 = assemble(L0)
-            b.axpy(1.0, b0)
-
-            # Apply boundary conditions            
-            for bc in bcs:
-                bc.apply(b)
-
-            # Solve
-            solver.solve(A, self.up.vector(), b)
-
-            # Yield solution and time
-            yield self.up, float(time)
-
-            # Update previous solution up_ with current solution up
-            self.up_.assign(self.up)
-
-            # Update time
-            time.assign(t1)
-
-
+        solve(A, self.up.vector(), b)
 
 if __name__ == "__main__":
 
@@ -219,4 +180,18 @@ if __name__ == "__main__":
     material = dict(E=E, nu=nu, alpha=(0.5, 0.5), A=2, c=(1.0, 1.0), K=(1.0, 1.),
                     S=((0.0, 1.0), (1.0, 0.0)))
     problem = MPETProblem(mesh, time, params=material)
-    solver = AdaptiveMPETSolver(problem)
+
+    adaptive = AdaptiveMPETSolver.default_params()
+    solver = AdaptiveMPETSolver(problem, params=adaptive)
+
+    up_ = solver.up_
+    up = solver.up
+    
+    solver.step(1.0)
+    
+    up_.assign(up)
+
+    print(up.vector().norm("l2"))
+    
+
+    

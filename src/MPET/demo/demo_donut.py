@@ -41,7 +41,7 @@ def demo_donut(n=8, M=8, theta=1.0):
 
     # Read mesh
     mesh = Mesh()
-    file = HDF5File(mpi_comm_world(), "donut2D.h5", "r")
+    file = HDF5File(MPI.comm_world, "donut2D.h5", "r")
     file.read(mesh, "/mesh", False)
     file.close()
 
