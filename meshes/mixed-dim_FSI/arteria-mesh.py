@@ -77,7 +77,6 @@ def create_mesh(res=0.025, inner=0.1, outer=0.105, length=0.5):
 
 # Main
 # =======
-
 create_mesh(0.1E-2, 0.3E-2, 0.315E-2, 5.0E-2)
 
 
@@ -86,28 +85,7 @@ input_file = "arteria.msh"
 file_name = "arteria"
 msh = meshio.read(input_file)
 
-# FIXME : New meshio syntax
-for cell in msh.cells:
-    if cell.type == "triangle":
-        triangle_cells = cell.data
-    elif  cell.type == "tetra":
-        tetra_cells = cell.data
-
-for key in msh.cell_data_dict["gmsh:physical"].keys():
-    if key == "triangle":
-        triangle_data = msh.cell_data_dict["gmsh:physical"][key]
-    elif key == "tetra":
-        tetra_data = msh.cell_data_dict["gmsh:physical"][key]
-tetra_mesh = meshio.Mesh(points=msh.points, cells={"tetra": tetra_cells})
-triangle_mesh =meshio.Mesh(points=msh.points,
-                           cells=[("triangle", triangle_cells)],
-                           cell_data={"name_to_read":[triangle_data]})
-
-# # Write XDMF and physical data
-meshio.write(file_name + ".xdmf", tetra_mesh)
-# meshio.write(file_name + ".xdmf", meshio.Mesh(points=msh.points, cells={"tetra": msh.cells["tetra"]}))
-
-# # Physical data -> MeshFunction
-meshio.write(file_name + "_mf.xdmf", triangle_mesh)
-# meshio.write(file_name + "_mfv.xdmf", meshio.Mesh(points=msh.points, cells={"tetra": msh.cells["tetra"]}, cell_data={"tetra": {"name_to_read": msh.cell_data["tetra"]["gmsh:physical"]}}))
-# meshio.write(file_name + "_mf.xdmf", meshio.Mesh(points=msh.points, cells={"triangle": msh.cells["triangle"]}, cell_data={"triangle": {"name_to_read": msh.cell_data["triangle"]["gmsh:physical"]}}))
+# Write XDMF and physical data
+meshio.write(file_name + ".xdmf", meshio.Mesh(points = msh.points, cells = {'tetra': msh.cells_dict['tetra']}))
+meshio.write(file_name + "_mfv.xdmf", meshio.Mesh(points=msh.points, cells=[("tetra", msh.cells_dict["tetra"])], cell_data={"name_to_read": [msh.cell_data_dict["gmsh:physical"]["tetra"]]}))
+meshio.write(file_name + "_mf.xdmf", meshio.Mesh(points=msh.points, cells=[("triangle", msh.cells_dict["triangle"])], cell_data={"name_to_read": [msh.cell_data_dict["gmsh:physical"]["triangle"]]}))
