@@ -12,8 +12,15 @@ element method and the FEniCS Project finite element software
 Documentation
 =============
 
-Documentation is available for each module/package/library contained
-within the waterscapes collection.
+This collection is structured by
+
+  data/     Raw data and processing utilies, mainly brain geometry-oriented
+  meshes/   Finite element meshes and associated information (markers)
+  src/      Solver collection
+  sandbox/  Playground for experimental features, testing etc.
+
+Further documentation is available for each module/package/library
+contained within the waterscapes solver collection.
 
 * For the mpet module documentation, see
   http://waterscapes.readthedocs.org
