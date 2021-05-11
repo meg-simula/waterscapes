@@ -11,6 +11,7 @@ Quickstart
 ==========
 
 In the top-level mpet directory, do::
+
   $ fenicsproject run stable
   $ export PYTHONPATH=`pwd`:$PYTHONPATH
   $ python3 test/test_mpetsolver_homogeneousDirichletBC.py
