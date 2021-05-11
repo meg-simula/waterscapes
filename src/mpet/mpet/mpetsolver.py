@@ -366,10 +366,14 @@ class MPETSolver(object):
         to calling solve.
 
         """
-        if self.params["direct_solver"]:
-            return self.solve_direct()
-        else:
-            return self.solve_iterative()
+
+        warning("Solving using direct solver, ignoring solver type.")
+        return self.solve_direct()
+
+        #if self.params["direct_solver"]:
+        #    return self.solve_direct()
+        #else:
+        #    return self.solve_iterative()
 
     def solve_direct(self):
         """Solve the given MPET problem to the end time given by the parameter
@@ -493,6 +497,7 @@ class MPETSolver(object):
             A.axpy(1.0, A_a, False) 
 
         # Assemble preconditioner and apply boundary conditions
+        print(prec)
         P = assemble(prec)
         for bc in bcs:
             apply_symmetric(bc, P)

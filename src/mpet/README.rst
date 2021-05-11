@@ -16,6 +16,22 @@ In the top-level mpet directory, do::
   $ export PYTHONPATH=`pwd`:$PYTHONPATH
   $ python3 test/test_mpetsolver_homogeneousDirichletBC.py
 
+=======
+Testing
+=======
+
+To run all tests, do (in e.g. the Docker container)::
+
+  $ fenicsproject run stable
+  $ export PYTHONPATH=`pwd`:$PYTHONPATH
+  $ cd test/
+  $ py.test-3
+
+To run a single test, do
+
+  $ cd test/
+  $ python3 <filename.py>
+  
 =============
 Documentation
 =============

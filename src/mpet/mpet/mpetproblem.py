@@ -5,6 +5,75 @@ __author__ = "Eleonora Piersanti <eleonora@simula.no>"
 from dolfin import *
 
 class MPETProblem(object):
+    """An MPETProblem represents an instance of the multiple-network
+    poroelasticity (MPET) equations: find the displacement vector
+    field u and the network pressures p_j for a set of networks j = 1,
+    ..., J such that:
+
+    (1)    - div ( sigma(u) - sum_{j=1}^J alpha_j p_j I) = f          
+    (2)    c_j (p_j)_t + alpha_j div(u_t) - div K_j grad p_j + sum_{i} S_{ji} (p_j - p_i) = g_j   
+
+    holds for t in (0, T) and for all x in the domain Omega, where
+    
+      sigma(u) = 2*mu*eps(u) + lmbda div(u) I 
+
+    and eps(u) = sym(grad(u)), and mu and lmbda are the standard Lame
+    parameters. For each network j, c_j is the specific storage
+    coefficient, alpha_j is the Biot-Willis coefficient, and K_j is
+    the hydraulic conductivity.
+
+    f is a given body force and g_j is a source in network j.
+
+    See e.g. Tully and Ventikos, Cerebral water transport using
+    multiple-network poroelastic theory: application to normal
+    pressure hydrocephalus, 2011 for an introduction to the
+    multiple-network poroelasticity equations.
+
+    Boundary conditions:
+
+    We assume that there are (possibly up to J+1) facet functions
+    marking the different subdomains of the boundary. We assume that
+
+    * Dirichlet conditions are marked by 0, 
+    * Neumann conditions are marked by 1 and 
+    * Robin conditions are marked by 2.
+
+    For the momentum equation (1):
+    
+    We assume that each part of the boundary of the domain is one of
+    the following two types:
+
+    *Dirichlet*: 
+
+      u(., t) = \bar u(t) 
+
+    *Neumann*:
+
+      (sigma(u) - sum_{j} alpha_j p_j I) * n = s
+
+    For the continuity equations (2):
+
+    We assume that each part of the boundary of the domain is one of
+    the following three types:
+
+    *Dirichet*
+
+      p_j(., t) = \bar p_j(t) 
+      
+    *Neumann*
+
+      K grad p_j(., t) * n = I_j(t)
+
+    *Robin* 
+       
+      K grad p_j(., t) * n = \beta_j (p_j - p_j_robin)
+    
+    Initial conditions:
+
+      u(x, t_0) = u_0(x)
+
+      p_j(x, t_0) = p0_j(x) if c_j > 0
+    """
 
     def __init__(self, mesh, time, params=None):
         """Initialize problem instance.
