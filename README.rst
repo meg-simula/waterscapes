@@ -1,21 +1,22 @@
-====================================================================================
-waterscapes: a collection of numerical solvers for cerebral fluid flow and transport
-====================================================================================
+=============================================================
+Computational brainphatics: simulating the brain's waterscape
+=============================================================
 
-waterscapes is a collection of Python-based solvers for mathematical
-modelling and simulation of the brain's waterscape; i.e. fluid flow
-and transport in the brain.
-
-waterscapes is based on the FEniCS Project.
-
-For more information visit http://waterscapes.readthedocs.org
+The waterscapes repository contains a collection of simulation
+software for mathematical modelling and simulation of brain mechanics
+including computational methods for simulating fluid flow and
+transport in and around the brain. The solvers are based on the finite
+element method and the FEniCS Project finite element software
+(http://www.fenicsproject.org)
 
 Documentation:
 ==============
 
-The waterscapes documention is availble on readthedocs, see:
+Documentation is available for each module/package/library contained
+within the waterscapes collection.
 
-    http://waterscapes.readthedocs.org
+* For the mpet module documentation, see
+  http://waterscapes.readthedocs.org
 
 License:
 ========
