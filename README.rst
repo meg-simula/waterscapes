@@ -9,8 +9,8 @@ transport in and around the brain. The solvers are based on the finite
 element method and the FEniCS Project finite element software
 (http://www.fenicsproject.org)
 
-Documentation:
-==============
+Documentation
+=============
 
 Documentation is available for each module/package/library contained
 within the waterscapes collection.
@@ -18,8 +18,8 @@ within the waterscapes collection.
 * For the mpet module documentation, see
   http://waterscapes.readthedocs.org
 
-License:
-========
+License
+=======
 
 waterscapes is free software: you can redistribute it and/or modify it
 under the terms of the GNU Lesser General Public License as published
