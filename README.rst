@@ -14,10 +14,10 @@ Documentation
 
 This collection is structured by
 
-  data/     Raw data and processing utilies, mainly brain geometry-oriented
-  meshes/   Finite element meshes and associated information (markers)
-  src/      Solver collection
-  sandbox/  Playground for experimental features, testing etc.
+* data/     Raw data and processing utilies, mainly brain geometry-oriented
+* meshes/   Finite element meshes and associated information (markers)
+* src/      Solver collection
+* sandbox/  Playground for experimental features, testing etc.
 
 Further documentation is available for each module/package/library
 contained within the waterscapes solver collection.
