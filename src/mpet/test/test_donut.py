@@ -6,6 +6,8 @@ import math
 import pytest
 from mpet import *
 
+# Simple and quick demo testing handling of nullspaces.
+
 # Turn on FEniCS optimizations
 parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
@@ -116,9 +118,16 @@ def constant_on_the_donut_nullspaces(n=8, M=8, theta=1.0):
 
     # Solve
     solutions = solver.solve()
+    #file = File("tmp/p0.pvd")
     for (up, t) in solutions:
         info("t = %g" % t)
-
+        print(up.vector().norm("l2"))
+        ups = up.split(deepcopy=True)
+        u = ups[0]
+        p0 = ups[1]
+        p1 = ups[2]
+        #file << p0
+        
 def test_donut():
     constant_on_the_donut()
     constant_on_the_donut_nullspaces()
