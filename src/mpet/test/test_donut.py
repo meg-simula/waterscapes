@@ -11,8 +11,6 @@ parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
-notpipelines = pytest.mark.notpipelines
-
 def constant_on_the_donut(n=8, M=8, theta=1.0):
 
     "N is t_he mesh size, M the number of time steps."
@@ -44,7 +42,7 @@ def constant_on_the_donut(n=8, M=8, theta=1.0):
 
     n = FacetNormal(mesh)
     problem.s = Expression("t", t=time, degree=0)*n
-    problem.displacement_nullspace = True
+    problem.u_has_nullspace = True
     
     on_boundary = CompiledSubDomain("on_boundary")
     on_boundary.mark(problem.momentum_boundary_markers, 1)
@@ -55,26 +53,24 @@ def constant_on_the_donut(n=8, M=8, theta=1.0):
 
     # Set-up solver
     params = dict(dt=dt, theta=theta, T=T)
-    #solver = MPETTotalPressureSolverSymmetric(problem, params)
     solver = MPETSolver(problem, params)
-    
-    # Using zero initial conditions by default
     
     # Solve
     solutions = solver.solve()
     for (up, t) in solutions:
         info("t = %g" % t)
 
-    (u, p) = up.split(deepcopy=True)
-    print(norm(u, "L2"))
+    (u, p, r) = up.split(deepcopy=True)
     volume = math.sqrt(assemble(1*dx(domain=mesh)))
     p_x = p((0.0, 50.0))
+    print(norm(u, "L2"))
+    print(p_x)
     assert(abs(p_x + 0.2) < 1.e-8), "Point value of p not matching reference"
     assert(abs(norm(p, "L2")/volume - 0.2) < 1.e-10), "Point value of p not matching reference"
 
 def constant_on_the_donut_nullspaces(n=8, M=8, theta=1.0):
         
-    "N is t_he mesh size, M the number of time steps."
+    "N is the mesh size, M the number of time steps."
     
     # Define end time T and timestep dt
     dt = 0.1
@@ -102,30 +98,27 @@ def constant_on_the_donut_nullspaces(n=8, M=8, theta=1.0):
     problem = MPETProblem(mesh, time, params=params)
 
     # Mark the entire boundary as Neumann boundary for the momentum equation
+    NEUMANN = 1
     n = FacetNormal(mesh)
     problem.s = Expression("t", t=time, degree=0)*n
-    problem.displacement_nullspace = True
+    problem.u_has_nullspace = True
     on_boundary = CompiledSubDomain("on_boundary")
-    on_boundary.mark(problem.momentum_boundary_markers, 1)
+    on_boundary.mark(problem.momentum_boundary_markers, NEUMANN)
 
     # Mark the entire boundary as Neumann boundary for the continuity
     # equation(s)
-    problem.pressure_nullspace = (True, True)
-    on_boundary.mark(problem.continuity_boundary_markers[0], 1)
+    problem.p_has_nullspace = (True, True)
+    on_boundary.mark(problem.continuity_boundary_markers[0], NEUMANN)
 
     # Set-up solver
     params = dict(dt=dt, theta=theta, T=T)
     solver = MPETSolver(problem, params)
 
-    # Using zero initial conditions by default
-    
     # Solve
     solutions = solver.solve()
     for (up, t) in solutions:
         info("t = %g" % t)
 
-notpipelines = pytest.mark.notpipelines
-@notpipelines
 def test_donut():
     constant_on_the_donut()
     constant_on_the_donut_nullspaces()

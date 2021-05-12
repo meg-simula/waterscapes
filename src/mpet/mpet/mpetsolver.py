@@ -119,7 +119,7 @@ class MPETSolver(object):
         # Create finite element spaces for the displacement and pressure(s)
         cell = mesh.ufl_cell()
         V = VectorElement("CG", cell, self.params["u_degree"])
-        W = FiniteElement("CG", cell, self.params["p_degree"])
+        Q = FiniteElement("CG", cell, self.params["p_degree"])
 
         # Extend the spaces if there are additional nullspaces to be handled
         u_has_nullspace = self.problem.u_has_nullspace
@@ -142,7 +142,7 @@ class MPETSolver(object):
 
         # Make list of elements, MixedElement and FunctionSpace
         Js = range(self.problem.params["J"])
-        elements = [V] + [W for i in Js] + RU + RP
+        elements = [V] + [Q for i in Js] + RU + RP
         M = MixedElement(elements)
         VQ = FunctionSpace(mesh, M)
 
@@ -175,7 +175,7 @@ class MPETSolver(object):
         # test functions q = (q_1, ..., q_J)
         vq = TestFunctions(VQ)
         v = vq[0]
-        w = vq[1:J+1]
+        q = vq[1:J+1]
         
         # Handling nullspaces: extract additional test and trial
         # functions corresponding to Lagrange multipliers
@@ -209,10 +209,10 @@ class MPETSolver(object):
         dx = Measure("dx", domain=mesh)
         F = inner(sigma(u), sym(grad(v)))*dx() \
             + sum([-alpha[i]*p[i]*div(v) for i in Js])*dx() \
-            + sum([-c[i]*(p[i] - p_[i])*w[i] for i in Js])*dx() \
-            + sum([-alpha[i]*div(u-u_)*w[i] for i in Js])*dx() \
-            + sum([-dt*inner(K[i]*grad(pm[i]), grad(w[i])) for i in Js])*dx() \
-            + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in Js]) for i in Js])*dx() 
+            + sum([-c[i]*(p[i] - p_[i])*q[i] for i in Js])*dx() \
+            + sum([-alpha[i]*div(u-u_)*q[i] for i in Js])*dx() \
+            + sum([-dt*inner(K[i]*grad(pm[i]), grad(q[i])) for i in Js])*dx() \
+            + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*q[i] for j in Js]) for i in Js])*dx() 
 
         # Add orthogonality versus rigid motions if relevant
         if u_has_nullspace:
@@ -222,11 +222,12 @@ class MPETSolver(object):
             
         # Add orthogonality against constants constraint if pressure i
         # has a nullspace
-        k = 0 
+        k = 0  
         for (i, p_i_has_nullspace) in enumerate(p_has_nullspace):
             if p_i_has_nullspace:
                 F += (p[i]*q_null[k] + p_null[k]*q[i])*dx()
-
+                k += 1 
+                
         # Extract body force f and sources g, boundary traction s and
         # boundary flux I, boundary Robin coefficient beta(s) and
         # Robin pressures p_robin from problem description
@@ -259,10 +260,10 @@ class MPETSolver(object):
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
 
             # Add Neumann contribution to list L1
-            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
+            L1 += [dt*g[i]*q[i]*dx() + dt*I[i]*q[i]*dsc[i](NEUMANN_MARKER)]
 
             # Add Robin contributions to both F and to L1 
-            F2a = dt*beta[i]*(-pm[i] + p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)
+            F2a = dt*beta[i]*(-pm[i] + p_robin[i])*q[i]*dsc[i](ROBIN_MARKER)
             a_robin += [lhs(F2a)]
             L1 += [rhs(F2a)]
 
@@ -280,11 +281,11 @@ class MPETSolver(object):
             info("Defining preconditioner")
             mu = E/(2.0*((1.0 + nu)))
             pu = mu * inner(grad(u), grad(v))*dx() 
-            pp = sum([c[i]*p[i]*w[i]*dx() + dt*theta**inner(K[i]*grad(p[i]), grad(w[i]))*dx() \
-                      + sum([dt*theta*S[i][j] for j in list(Js[:i])+list(Js[i+1:])])*p[i]*w[i]*dx() for i in Js])
+            pp = sum([c[i]*p[i]*q[i]*dx() + dt*theta**inner(K[i]*grad(p[i]), grad(q[i]))*dx() \
+                      + sum([dt*theta*S[i][j] for j in list(Js[:i])+list(Js[i+1:])])*p[i]*q[i]*dx() for i in Js])
             prec += pu + pp
             if not self.params["direct_solver"]:
-                prec += p_null[i]*q_null[i]*dx() + p[k]*w[k]*dx() 
+                prec += p_null[i]*q_null[i]*dx() + p[k]*q[k]*dx() 
                 i += 1
             #if u_has_nullspace:
             #    prec += sum(z[i]*r[i]*dx() for i in range(dimZ)) + inner(u,v)*dx() 
