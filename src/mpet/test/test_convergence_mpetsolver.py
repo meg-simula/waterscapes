@@ -5,16 +5,11 @@ __all__ = []
 
 import pytest
 from mpet import *
-set_log_level(0)
 
 # Turn on FEniCS optimizations
 parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
-
-class Right(SubDomain):
-        def inside(self, x, on_boundary):
-            return on_boundary and near(x[0], 1) 
 
 def convergence_rates(errors, hs):
     import math
@@ -22,6 +17,7 @@ def convergence_rates(errors, hs):
              for i in range(len(hs)-1)]
     return rates
 
+# Define the exact solutions
 def exact_solutions(params):
     import math
     import sympy
@@ -49,7 +45,6 @@ def exact_solutions(params):
 
     u = [sin(2.0*pi*x[0] + pi/2.0)*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t + t),
          sin(2.0*pi*x[0] + pi/2.0)*sin(2.0*pi*x[1] + pi/2.0)*sin(omega*t + t)]
-
     p = []
     p += [0]
     for i in range(1, J+1):
@@ -115,14 +110,12 @@ def single_run(n=8, M=8, theta=1.0, direct_solver=True):
 
     # Define material parameters in MPET equations
     J = 2
-    c = (1.0, 1.0)
-    alpha = (1.0, 1.0)
-    K = (1.0, 1.0)
-    S = ((1.0, 1.0), (1.0, 1.0))
-    E = 1.0
-    nu = 0.35
-    mu = E/(2.0*(1.0+nu))
-
+    c = (0.3, 0.4)
+    alpha = (0.4, 0.6)
+    K = (0.2, 0.3)
+    S = ((0.0, 2.0), (1.0, 0.0))
+    E = 520.0
+    nu = 0.47
     params = dict(J=J, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
 
     info("Deriving exact solutions")
@@ -136,7 +129,7 @@ def single_run(n=8, M=8, theta=1.0, direct_solver=True):
     problem.f = Expression(f, t=time, degree=3)
     problem.g = [Expression(g[i], t=time, degree=3) for i in range(J)]
     problem.u_bar = Expression(u_e, t=time, degree=3)
-    problem.displacement_nullspace = False
+    #problem.u_has_nullspace = False
 
     sigma_tuple = tuple(tuple(i) for i in sigma)
     
@@ -144,13 +137,13 @@ def single_run(n=8, M=8, theta=1.0, direct_solver=True):
     problem.s = sigma_ex*normal
 
     p_ex = [Expression(p_e[i], t=time, degree=3) for i in range(J+1)]
-    problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1,J+1)]
+    problem.p_bar = [Expression(p_e[i], t=time, degree=3) for i in range(1, J+1)]
 
-    # Jpply Dirichlet conditions everywhere (indicated by the zero marker)
+    # Apply Dirichlet conditions everywhere (indicated by the zero marker)
     on_boundary = CompiledSubDomain("on_boundary")
     on_boundary.mark(problem.momentum_boundary_markers, 0)
     # Right edge is Neumann boundary
-    right = Right()
+    right = CompiledSubDomain("on_boundary && near(x[0], 1.0)")
     right.mark(problem.momentum_boundary_markers, 1)
 
     for i in range(J):
@@ -218,7 +211,6 @@ def convergence_exp(theta, direct_solver):
         for (i, errpi) in enumerate(errpH1):
             p_errorsH1[i] += [errpi]
 
-
     # Compute convergence rates:
     u_ratesL2 = convergence_rates(u_errorsL2, hs)
     u_ratesH1 = convergence_rates(u_errorsH1, hs)
@@ -248,12 +240,9 @@ def convergence_exp(theta, direct_solver):
 
 
 def test_convergence():
-    #test for direct_solver=True
-    convergence_exp(0.5, True)
-    convergence_exp(1.0, True)
-    #test for direct_solver=False
-    convergence_exp(0.5, False)
-    convergence_exp(1.0, False)
+    solve_direct = True
+    convergence_exp(0.5, solve_direct)
+    convergence_exp(1.0, solve_direct)
 
 if __name__ == "__main__":
 
