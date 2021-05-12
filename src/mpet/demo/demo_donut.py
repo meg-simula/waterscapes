@@ -28,20 +28,20 @@ def demo_donut(n=8, M=8, theta=1.0):
     dt = 0.05
     T = 1.0
     # Define material parameters in MPET equations
-    A = 1
-    c = 1.0e-2
+    J = 1
+    c = (1.0e-2,)
     alpha = (1.0,)
     K = (1.0e-5,)
     S = ((0.0,),)
     E = 500 # Pa
     nu = 0.49
-    params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
+    params = dict(J=J, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
 
     info("Setting up MPET problem")
 
     # Read mesh
     mesh = Mesh()
-    file = HDF5File(MPI.comm_world, "donut2D.h5", "r")
+    file = HDF5File(MPI.comm_world, "../test/donut2D.h5", "r")
     file.read(mesh, "/mesh", False)
     file.close()
 
@@ -52,22 +52,22 @@ def demo_donut(n=8, M=8, theta=1.0):
 
     mmHg2Pa = Constant(133.322)
     n = FacetNormal(mesh)
-#    problem.s = Expression("x[0]*x[0] + x[1]*x[1] > 40.0*40.0 ? mmHg2Pa*15.0*sin(2*pi*t) : 0.0", mmHg2Pa=mmHg2Pa, t=time, degree=3)*n
+    #    problem.s = Expression("x[0]*x[0] + x[1]*x[1] > 40.0*40.0 ? mmHg2Pa*15.0*sin(2*pi*t) : 0.0", mmHg2Pa=mmHg2Pa, t=time, degree=3)*n
     x = SpatialCoordinate(mesh)
     problem.s = conditional(x[0]*x[0] + x[1]*x[1] > 40.0*40.0, mmHg2Pa*0.15*sin(2*pi*time), 0.0)*n
 
-    problem.displacement_nullspace = True
+    problem.u_has_nullspace = True
     outer_boundary.mark(problem.momentum_boundary_markers, 1)
     
     #problem.u_bar = Expression(("0.1*sin(2*pi*t)*x[0]/sqrt((x[0]*x[0] + x[1]*x[1]))","0.1*sin(2*pi*t)*x[1]/sqrt((x[0]*x[0] + x[1]*x[1]))"),\
     #                             t=time, degree=3, domain=problem.mesh)
     inner_boundary.mark(problem.momentum_boundary_markers, 1)
 
-    for i in range(A):
+    for i in range(J):
         inner_boundary.mark(problem.continuity_boundary_markers[i], 1)
         outer_boundary.mark(problem.continuity_boundary_markers[i], 1)
 
-    problem.pressure_nullspace = [False]    
+    problem.p_has_nullspace = [False]    
 
     # Set-up solver
     params = dict(dt=dt, theta=theta, T=T)
