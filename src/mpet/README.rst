@@ -5,10 +5,9 @@ mpet: finite element solvers for multiple-network poroelastic theory
 mpet is a Python module based on the FEniCS finite element software
 for solving the multiple-network poroelasticity equations.
 
-
-==========
+**********
 Quickstart
-==========
+**********
 
 In the top-level mpet directory, do::
 
@@ -16,9 +15,9 @@ In the top-level mpet directory, do::
   $ export PYTHONPATH=`pwd`:$PYTHONPATH
   $ python3 test/test_mpetsolver_homogeneousDirichletBC.py
 
-=======
+*******
 Testing
-=======
+*******
 
 To run all tests, do (in e.g. the Docker container)::
 
@@ -27,18 +26,20 @@ To run all tests, do (in e.g. the Docker container)::
   $ cd test/
   $ py.test-3
 
-To run a single test, do
+To run a single, quick test, do::
 
   $ cd test/
-  $ python3 <filename.py>
+  $ python3 test_donut.py
   
-=============
+*************
 Documentation
-=============
+*************
 
 See http://waterscapes.readthedocs.org
 
+----------------------------------------------
 How to generate the documentation from scratch
+----------------------------------------------
 
 1. Make sure you have Sphinx installed:
 
