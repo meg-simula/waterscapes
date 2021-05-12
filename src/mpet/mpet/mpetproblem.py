@@ -2,6 +2,7 @@ __author__ = "Eleonora Piersanti <eleonora@simula.no>"
 
 # Modified by Marie E. Rognes <meg@simula.no>, 2017
 
+import sys
 from dolfin import *
 
 class MPETProblem(object):
@@ -18,7 +19,12 @@ class MPETProblem(object):
       sigma(u) = 2*mu*eps(u) + lmbda div(u) I 
 
     and eps(u) = sym(grad(u)), and mu and lmbda are the standard Lame
-    parameters. For each network j, c_j is the specific storage
+    parameters. 
+
+    # FIXME: sigma expressed in terms of E, nu in code, update
+    # description here.
+
+    For each network j, c_j is the specific storage
     coefficient, alpha_j is the Biot-Willis coefficient, and K_j is
     the hydraulic conductivity.
 
@@ -73,6 +79,7 @@ class MPETProblem(object):
       u(x, t_0) = u_0(x)
 
       p_j(x, t_0) = p0_j(x) if c_j > 0
+
     """
 
     def __init__(self, mesh, time, params=None):
@@ -81,24 +88,28 @@ class MPETProblem(object):
         Params will be taken from default_params and overridden
         by the values given to this constructor.
 
+        mesh should be the FEniCS Mesh, time should be a Constant
+        representing time. Assumed that all functions depending on
+        time do so via this Constant.
+
         This problem class assumes that the following attributes are
         set:
 
-        self.f : body force for the momentum equation (vector field)
-        self.g : list of body sources for the continuity equations
+        self.f: body force for the momentum equation (vector field)
+        self.g: list of body sources for the continuity equations
 
-        self.s : boundary force for the momentum equation (vector field)
-        self.I : list of boundary fluxes for the continuity equations
+        self.s: boundary force for the momentum equation (vector field)
+        self.I: list of boundary fluxes for the continuity equations
 
-        self.u_bar : essential boundary condition for u
-        self.p_bar : list of essential boundary conditions for p = (p_1, ..., p_A)
+        self.u_bar: essential boundary condition for u
+        self.p_bar: list of essential boundary conditions for p = (p_1, ..., p_A)
 
-        self.displacement_nullspace : boolean (True/False) if rigid motions should be eliminated
-        self.pressure_nullspace : list of boolean (True/False) if constants should be eliminated
+        self.displacement_nullspace: boolean (True/False) if rigid motions should be eliminated
+        self.pressure_nullspace: list of boolean (True/False) if constants should be eliminated
+
         """
+        # Set mesh and time
         self.mesh = mesh
-        # NB: Assumption that everything that depends on time does so
-        # through this Constant time
         self.time = time
 
         # Update problem parameters
@@ -106,54 +117,48 @@ class MPETProblem(object):
         if params is not None:
             self.params.update(params)
 
-        As = range(self.params["A"])
-
+        Js = range(self.params["J"])
         gdim = self.mesh.geometry().dim()
         
-        # Default values for forces and sources
+        # Set default values for forces and sources
         self.f = Constant((0.0,)*gdim) 
         self.s = Constant((0.0,)*gdim)
-        self.g = [Constant(0.0) for i in As]
-        self.I = [Constant(0.0) for i in As]
-        self.beta = [Constant(0.0) for i in As]
-        self.p_robin = [Constant(0.0) for i in As]
-        # Default values for Dirichlet boundary conditions
+        self.g = [Constant(0.0) for i in Js]
+        self.I = [Constant(0.0) for i in Js]
+        self.beta = [Constant(0.0) for i in Js]
+        self.p_robin = [Constant(0.0) for i in Js]
         self.u_bar = Constant((0.0,)*gdim)
-        self.p_bar = [Constant(0.0) for i in As]
+        self.p_bar = [Constant(0.0) for i in Js]
 
         # Default markers, one for the momentum equation and one for
         # each network continuity equation
-
-        # Assumption: Neumann condition is marked by 1
-        # Assumption: Robin conditions is maked by 2
-
-        INVALID = 7101982
+        INVALID = sys.maxsize
         tdim = mesh.topology().dim() 
         markers = MeshFunction("size_t", mesh, tdim-1)
         markers.set_all(INVALID)
         self.momentum_boundary_markers = markers
 
         self.continuity_boundary_markers = []
-        for i in As:
+        for i in Js:
             markers = MeshFunction("size_t", mesh, tdim-1)
             markers.set_all(INVALID)
             self.continuity_boundary_markers += [markers]
 
-        self.displacement_nullspace = False
-        self.pressure_nullspace = list(False for i in As)
+        self.u_has_nullspace = False
+        self.p_has_nullspace = list(False for i in Js)
             
     @classmethod
     def default_parameters(cls):
         "Define the set of parameters to define the problem."
-        ps = {"A": 1.0,
-              "alpha": (1.0,),
-              "rho": 1.0,
-              "nu": 0.479,
-              "E": 584e-3,
-              "K": (1.0, ),
-              "G": ((1.0,),),
-              "c": 0.0,
-              }
+        ps = {"J": 1.0,
+              "rho": Constant(1.0),
+              "nu": Constant(0.479),
+              "E": Constant(1500),
+              "alpha": (Constant(1.0),),
+              "K": (Constant(1.0), ),
+              "X": ((Constant(1.0),),),
+              "c": (Constant(1.0),)
+        }
         return ps
         
         

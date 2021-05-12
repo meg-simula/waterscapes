@@ -27,80 +27,7 @@ def elastic_stress(u, E, nu):
     return s
 
 class MPETSolver(object):
-    """This solver solves the multiple-network poroelasticity equations
-    (MPET): find a vector field (the displacement) u and the network
-    pressures p_a for a set of networks a = 1, ..., A such that:
-
-        - div ( sigma(u) - sum_{a} alpha_a p_a I) = f           (1)
-        c_a p_a_t + alpha_a div(u_t) - div K_a grad p_a + sum_{b} S_ab (p_a - p_b) = g_a   (2)
-
-    where 
-    
-      sigma(u) = 2*mu*eps(u) + lmbda div(u) I 
-
-    and eps(u) = sym(grad(u)), and mu and lmbda are the standard Lame
-    parameters. For each network a, c_a is the specific storage
-    coefficient, alpha_a is the Biot-Willis coefficient, and K_a is
-    the hydraulic conductivity.
-
-    f is a given body force and g_a source(s) in network a.
-
-    See e.g. Tully and Ventikos, 2011 for further details on the
-    multiple-network poroelasticity equations.
-
-    Boundary conditions:
-
-    We assume that there are (possibly multiple) facet functions
-    marking the different subdomains of the boundary. We assume that
-    Dirichlet conditions are marked by 0, Neumann conditions marked by
-    1 and Robin conditions marked by 2.
-
-    For the momentum equation (1):
-    
-    We assume that each part of the boundary of the domain is one of
-    the following two types:
-
-    *Dirichlet*: 
-
-      u(., t) = \bar u(t) 
-
-    *Neumann*:
-
-      (sigma(u) - sum_{a} alpha_a p_a I) * n = s
-
-    Assume that for each a, a FacetFunction indicates the different
-    boundaries, and that the Dirichlet boundary is marked by 0, the
-    Neumann boundary is marked by 1 and the Robin boundary is marked
-    by 2.
-
-    For the continuity equations (2):
-
-    We assume that each part of the boundary of the domain is one of
-    the following three types:
-
-    *Dirichet*
-
-      p_a(., t) = \bar p_a(t) 
-      
-    *Neumann*
-
-      K grad p_a(., t) * n = I_a(t)
-
-    *Robin* 
-       
-      K grad p_a(., t) * n = \beta_a (p_a - p_a_ robin)
-    
-    Assume that for each a, a FacetFunction indicates the different
-    boundaries, and that the Dirichlet boundary is marked by 0, the
-    Neumann boundary is marked by 1 and the Robin boundary is marked
-    by 2.
-
-    Initial conditions:
-
-      u(x, t_0) = u_0(x)
-
-      p_a(x, t_0) = p0_a(x) if c_a > 0
-
+    """
     Variational formulation (using Einstein summation notation over a
     in the elliptic equation below):
 
@@ -125,24 +52,29 @@ class MPETSolver(object):
 
     def __init__(self, problem, params=None):
         "Create solver with given MPET problem and parameters."
+
+        # Set problem and update parameters if given
         self.problem = problem
-        # Update parameters if given
         self.params = self.default_params()
         if params is not None:
             self.params.update(params)
 
         self.solver_monitor = {}
         # Initialize variational forms and store
+        # a is the main left-hand side form
+        # L is the right-hand side form that does not depend explicitly on time
+        # L0 is a list of right-hand side forms (from elliptic momentum equation)
+        # L1 is a list of right-hand side forms (from parabolic continuity equation)
         a, a_robin, L, L0, L1, prec, up_, up = self.create_variational_forms()
-
-        self.a = a             # Main left-hand side form
-        self.a_robin = a_robin # List of left-hand side forms for Robin boundary conditions
-        self.L = L             # Right-hand side form that does not depend explicitly on time
-        self.L0 = L0           # List of right-hand side forms (from elliptic momentum equation)
-        self.L1 = L1           # List of right-hand side forms (from parabolic continuity equation)
 
         self.up_ = up_         # Solution at previous time step
         self.up = up           # Solution at current time step
+
+        self.a = a             
+        self.a_robin = a_robin 
+        self.L = L             
+        self.L0 = L0
+        self.L1 = L1
 
         self.prec = prec
 
@@ -153,16 +85,16 @@ class MPETSolver(object):
         """
         VP = self.up.function_space()
 
-        # Define and create boundary conditions for momentum equation
+        # Define and create DirichletBCsboundary conditions for momentum equation
         bcs0 = []
         markers = self.problem.momentum_boundary_markers
         u_bar = self.problem.u_bar
         bcs0 += [DirichletBC(VP.sub(0), u_bar, markers, DIRICHLET_MARKER)]
 
-        # Define and create Boundary conditions for the continuity equations
+        # Define and create DirichletBCs for the continuity equations
         bcs1 = []
         p_bar = self.problem.p_bar
-        for i in range(self.problem.params["A"]):
+        for i in range(self.problem.params["J"]):
             markers = self.problem.continuity_boundary_markers[i]
             bcs1 += [DirichletBC(VP.sub(i+1), p_bar[i], markers, DIRICHLET_MARKER)]
 
@@ -179,86 +111,88 @@ class MPETSolver(object):
         params.add("u_degree", 2)
         params.add("p_degree", 1)
         params.add("direct_solver", True)
-        params.add("testing", False)
+        #params.add("testing", False)
         return params
 
-    def create_variational_forms(self):
-        "."
+    def create_function_spaces(self, mesh):
         
-        # Extract mesh from problem
-        mesh = self.problem.mesh
+        # Create finite element spaces for the displacement and pressure(s)
+        cell = mesh.ufl_cell()
+        V = VectorElement("CG", cell, self.params["u_degree"])
+        W = FiniteElement("CG", cell, self.params["p_degree"])
 
-        # Extract time step
-        dt = Constant(self.params["dt"])
-        
-        # Extract the number of networks
-        A = self.problem.params["A"]
-        As = range(A)
+        # Extend the spaces if there are additional nullspaces to be handled
+        u_has_nullspace = self.problem.u_has_nullspace
+        p_has_nullspace = self.problem.p_has_nullspace
+        dimQ = sum(p_has_nullspace)
 
-        # Create function spaces 
-        V = VectorElement("CG", mesh.ufl_cell(), self.params["u_degree"])
-        W = FiniteElement("CG", mesh.ufl_cell(), self.params["p_degree"])
-        
-        u_nullspace = self.problem.displacement_nullspace
-        p_nullspace = self.problem.pressure_nullspace
-        dimQ = sum(p_nullspace)
-        if u_nullspace:
-            Z = rigid_motions(self.problem.mesh)
-            dimZ = len(Z)
-            RU = VectorElement('R', mesh.ufl_cell(), 0, dimZ)
-            if dimQ:
-                RP = [FiniteElement('R', mesh.ufl_cell(), 0)
-                      for i in range(dimQ)]
-                M = MixedElement([V] + [W for i in As] + [RU] + RP)
-            else:
-                M = MixedElement([V] + [W for i in As] + [RU])
+        # The nullspace for the momentum equation is the space of
+        # rigid motions, add this space (of dimension depending on the
+        # spatial dimension) to the function space
+        if u_has_nullspace:
+            dimZ = len(rigid_motions(self.problem.mesh))
+            RU = [VectorElement('R', mesh.ufl_cell(), 0, dimZ),]
         else:
-            if dimQ:
-                RP = [FiniteElement('R', mesh.ufl_cell(), 0)
-                      for i in range(dimQ)]
-                M = MixedElement([V] + [W for i in As] + RP)
-            else:
-                M = MixedElement([V] + [W for i in As])
+            RU = []
+            
+        # If dimQ > 0, then there are one or more pressures that are
+        # only determined up to a constant. Add these spaces as
+        # well. (List will be empty if dimQ = 0)
+        RP = [FiniteElement('R', mesh.ufl_cell(), 0) for i in range(dimQ)]
 
-        VW = FunctionSpace(mesh, M)
+        # Make list of elements, MixedElement and FunctionSpace
+        Js = range(self.problem.params["J"])
+        elements = [V] + [W for i in Js] + RU + RP
+        M = MixedElement(elements)
+        VQ = FunctionSpace(mesh, M)
 
+        return VQ
+        
+    def create_variational_forms(self, include_preconditioner=False):
+
+        # Extract information from the problem
+        mesh = self.problem.mesh
+        dt = Constant(self.params["dt"])
+        J = self.problem.params["J"]
+        Js = range(J)
+        
+        # Create function spaces (including nullspaces as relevant)
+        VQ = self.create_function_spaces(mesh)
+        
         # Create previous solution field(s) and extract previous
         # displacement solution u_ and pressures p_ = (p_1, ..., p_A)
-        up_ = Function(VW)
+        up_ = Function(VQ)
         u_ = split(up_)[0]
-        p_ = split(up_)[1:A+1]
+        p_ = split(up_)[1:J+1]
         
         # Create trial functions and extract displacement u and pressure
         # trial functions p = (p_1, ..., p_A)
-        up = TrialFunctions(VW)
+        up = TrialFunctions(VQ)
         u = up[0]
-        p = up[1:A+1]
+        p = up[1:J+1]
 
-        # Create test functions and extract displacement u and pressure
-        # test functions p = (p_1, ..., p_A)
-        vw = TestFunctions(VW)
-        v = vw[0]
-        w = vw[1:A+1]
+        # Create test functions and extract displacement v and pressure
+        # test functions q = (q_1, ..., q_J)
+        vq = TestFunctions(VQ)
+        v = vq[0]
+        w = vq[1:J+1]
         
-        # Extract test and trial functions corresponding to the
-        # nullspace Lagrange multiplier
-        if u_nullspace == True:
-            z = up[-1-dimQ]
-            r = vw[-1-dimQ]
-            if dimQ:
-                p_null = up[-1-dimQ+1:]
-                w_null = vw[-1-dimQ+1:]
-        else:
-            if dimQ:
-                p_null = up[-1-dimQ+1:]
-                w_null = vw[-1-dimQ+1:]
-            else:
-                pass
+        # Handling nullspaces: extract additional test and trial
+        # functions corresponding to Lagrange multipliers
+        u_has_nullspace = self.problem.u_has_nullspace
+        p_has_nullspace = self.problem.p_has_nullspace
+        dimQ = sum(p_has_nullspace)
+        if u_has_nullspace:
+            z = up[J+1]
+            r = vq[J+1]
+        if dimQ:
+            p_null = up[J+2:]
+            q_null = vq[J+2:]
                 
         # um and pm represent the solutions at time t + dt*theta
         theta = self.params["theta"]
         um = theta*u + (1.0 - theta)*u_
-        pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in As]
+        pm = [(theta*p[i] + (1.0-theta)*p_[i]) for i in Js]
         
         # Extract material parameters from problem
         E = self.problem.params["E"]          
@@ -271,6 +205,28 @@ class MPETSolver(object):
         # Define the extra/elastic stress
         sigma = lambda u: elastic_stress(u, E, nu)
 
+        # Define main variational form to be solved at each time-step.
+        dx = Measure("dx", domain=mesh)
+        F = inner(sigma(u), sym(grad(v)))*dx() \
+            + sum([-alpha[i]*p[i]*div(v) for i in Js])*dx() \
+            + sum([-c[i]*(p[i] - p_[i])*w[i] for i in Js])*dx() \
+            + sum([-alpha[i]*div(u-u_)*w[i] for i in Js])*dx() \
+            + sum([-dt*inner(K[i]*grad(pm[i]), grad(w[i])) for i in Js])*dx() \
+            + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in Js]) for i in Js])*dx() 
+
+        # Add orthogonality versus rigid motions if relevant
+        if u_has_nullspace:
+            Z = rigid_motions(mesh)
+            for (i, Zi) in enumerate(Z):
+                F += (r[i]*inner(Zi, u) + z[i]*inner(Zi, v))*dx()
+            
+        # Add orthogonality against constants constraint if pressure i
+        # has a nullspace
+        k = 0 
+        for (i, p_i_has_nullspace) in enumerate(p_has_nullspace):
+            if p_i_has_nullspace:
+                F += (p[i]*q_null[k] + p_null[k]*q[i])*dx()
+
         # Extract body force f and sources g, boundary traction s and
         # boundary flux I, boundary Robin coefficient beta(s) and
         # Robin pressures p_robin from problem description
@@ -280,45 +236,6 @@ class MPETSolver(object):
         I = self.problem.I
         beta = self.problem.beta
         p_robin = self.problem.p_robin
-
-        # Define main variational form to be solved at each time-step.
-        dx = Measure("dx", domain=mesh)
-        F = inner(sigma(u), sym(grad(v)))*dx() \
-            + sum([-alpha[i]*p[i]*div(v) for i in As])*dx() \
-            + sum([-c[i]*(p[i] - p_[i])*w[i] for i in As])*dx() \
-            + sum([-alpha[i]*div(u-u_)*w[i] for i in As])*dx() \
-            + sum([-dt*inner(K[i]*grad(pm[i]), grad(w[i])) for i in As])*dx() \
-            + sum([sum([-dt*S[i][j]*(pm[i] - pm[j])*w[i] for j in As]) \
-                   for i in As])*dx() 
-
-        # Define form for preconditioner
-        prec = 0
-        if not self.params["direct_solver"]:
-            info("Defining preconditioner")
-            mu = E/(2.0*((1.0 + nu)))
-            pu = mu * inner(grad(u), grad(v))*dx() 
-            pp = sum([c[i]*p[i]*w[i]*dx() + dt*theta**inner(K[i]*grad(p[i]), grad(w[i]))*dx() \
-                      + sum([dt*theta*S[i][j] for j in list(As[:i])+list(As[i+1:])])*p[i]*w[i]*dx() for i in As])
-            prec += pu + pp
-
-        # Add orthogonality versus rigid motions if nullspace for the
-        # displacement
-        if u_nullspace:
-            F += sum(r[i]*inner(Z[i], u)*dx() for i in range(dimZ)) \
-                 + sum(z[i]*inner(Z[i], v)*dx() for i in range(dimZ))
-            if not self.params["direct_solver"]:     
-                prec += sum(z[i]*r[i]*dx() for i in range(dimZ)) + inner(u,v)*dx() 
-            
-        # Add orthogonality versus constants if nullspace for the
-        # displacement
-        if dimQ:
-            i = 0
-            for (k, p_nullspace) in enumerate(self.problem.pressure_nullspace):
-                if p_nullspace:
-                    F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
-                    if not self.params["direct_solver"]:
-                        prec += p_null[i]*w_null[i]*dx() + p[k]*w[k]*dx() 
-                    i += 1
                     
         # Add body force and traction boundary condition for momentum
         # equation. The form L0 holds the right-hand side terms of the
@@ -337,24 +254,40 @@ class MPETSolver(object):
         L1 = []
         a_robin = []
         info("Defining contributions from Neumann and Robin boundary conditions")
-        for a in As:
-            markers = self.problem.continuity_boundary_markers[a]
+        for i in Js:
+            markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
 
             # Add Neumann contribution to list L1
-            L1 += [dt*g[a]*w[a]*dx() + dt*I[a]*w[a]*dsc[a](NEUMANN_MARKER)]
+            L1 += [dt*g[i]*w[i]*dx() + dt*I[i]*w[i]*dsc[i](NEUMANN_MARKER)]
 
             # Add Robin contributions to both F and to L1 
-            F2a = dt*beta[a]*(-pm[a] + p_robin[a])*w[a]*dsc[a](ROBIN_MARKER)
+            F2a = dt*beta[i]*(-pm[i] + p_robin[i])*w[i]*dsc[i](ROBIN_MARKER)
             a_robin += [lhs(F2a)]
             L1 += [rhs(F2a)]
 
         # Define function for current solution
-        up = Function(VW)
+        up = Function(VQ)
 
         # Just split main form F here into a and L
         a = lhs(F)
         L = rhs(F)
+
+        # Define form for preconditioner
+        prec = 0
+        if include_preconditioner:
+            i = 0
+            info("Defining preconditioner")
+            mu = E/(2.0*((1.0 + nu)))
+            pu = mu * inner(grad(u), grad(v))*dx() 
+            pp = sum([c[i]*p[i]*w[i]*dx() + dt*theta**inner(K[i]*grad(p[i]), grad(w[i]))*dx() \
+                      + sum([dt*theta*S[i][j] for j in list(Js[:i])+list(Js[i+1:])])*p[i]*w[i]*dx() for i in Js])
+            prec += pu + pp
+            if not self.params["direct_solver"]:
+                prec += p_null[i]*q_null[i]*dx() + p[k]*w[k]*dx() 
+                i += 1
+            #if u_has_nullspace:
+            #    prec += sum(z[i]*r[i]*dx() for i in range(dimZ)) + inner(u,v)*dx() 
 
         return a, a_robin, L, L0, L1, prec, up_, up
 
@@ -414,7 +347,7 @@ class MPETSolver(object):
         for bc in bcs:
             bc.apply(A)
         
-        # Create LU solver and reuse LU factorization
+        # Create LU solver
         solver = LUSolver(A, "mumps")
         
         while (float(time) < (T - 1.e-9)):

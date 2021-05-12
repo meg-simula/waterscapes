@@ -22,14 +22,14 @@ def constant_on_the_donut(n=8, M=8, theta=1.0):
     T = 2*dt
 
     # Define material parameters in MPET equations
-    A = 1
+    J = 1
     c = (0.0,)
     alpha = (1.0,)
     K = (1.e-2,)
     S = ((0.0,),)
     E = 500 # Pa
     nu = 0.35
-    params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
+    params = dict(J=J, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
 
     info("Setting up MPET problem")
 
@@ -49,8 +49,8 @@ def constant_on_the_donut(n=8, M=8, theta=1.0):
     on_boundary = CompiledSubDomain("on_boundary")
     on_boundary.mark(problem.momentum_boundary_markers, 1)
 
-    problem.p_bar = [Expression("-t", t=time, degree=0) for i in range(A)]
-    for i in range(A):
+    problem.p_bar = [Expression("-t", t=time, degree=0) for i in range(J)]
+    for i in range(J):
         on_boundary.mark(problem.continuity_boundary_markers[i], 0)
 
     # Set-up solver
@@ -65,7 +65,7 @@ def constant_on_the_donut(n=8, M=8, theta=1.0):
     for (up, t) in solutions:
         info("t = %g" % t)
 
-    (u, p, r) = up.split(deepcopy=True)
+    (u, p) = up.split(deepcopy=True)
     print(norm(u, "L2"))
     volume = math.sqrt(assemble(1*dx(domain=mesh)))
     p_x = p((0.0, 50.0))
@@ -81,14 +81,14 @@ def constant_on_the_donut_nullspaces(n=8, M=8, theta=1.0):
     T = 2*dt
 
     # Define material parameters in MPET equations
-    A = 2
+    J = 2
     c = (0.0, 0.0)
     alpha = (1.0, 1.0)
     K = (1.e-2, 1.e-1)
     S = ((0.0, 0.0), (0.0, 0.0))
     E = 500 # Pa
     nu = 0.35
-    params = dict(A=A, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
+    params = dict(J=J, alpha=alpha, K=K, S=S, c=c, nu=nu, E=E)
 
     info("Setting up MPET problem")
 

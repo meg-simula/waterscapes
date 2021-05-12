@@ -137,7 +137,7 @@ class MPETTotalPressureSolver(object):
         # Boundary conditions for continuity equation
         bcs1 = []
         p_bar = self.problem.p_bar
-        for i in range(self.problem.params["A"]):
+        for i in range(self.problem.params["J"]):
             markers = self.problem.continuity_boundary_markers[i]
             bcs1 += [DirichletBC(VP.sub(i+2), p_bar[i], markers, 0)]
 
@@ -170,14 +170,14 @@ class MPETTotalPressureSolver(object):
         dt = Constant(self.params["dt"])
         
         # Extract the number of networks
-        A = self.problem.params["A"]
+        A = self.problem.params["J"]
 
         # Create function spaces 
         V = VectorElement("CG", mesh.ufl_cell(), self.params["u_degree"])
         W = FiniteElement("CG", mesh.ufl_cell(), self.params["p_degree"])
 
-        u_nullspace = self.problem.displacement_nullspace
-        p_nullspace = self.problem.pressure_nullspace
+        u_nullspace = self.problem.u_has_nullspace
+        p_nullspace = self.problem.p_has_nullspace
         dimQ = sum(p_nullspace)
         if u_nullspace:
             info("Nullspace for u detected")
@@ -262,23 +262,23 @@ class MPETTotalPressureSolver(object):
         lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
         mu = E/(2.0*(1.0+nu))
 
-        As = range(A)
+        Js = range(A)
 
         F = inner(2*mu*sym(grad(u)), sym(grad(v)))*dx() \
             + p[0]*div(v)*dx()\
-            + (div(u) - 1./lmbda*sum([alpha[i]*p[i+1] for i in As]) -1./lmbda*p[0])*w[0]*dx()\
-            + sum([-c[i]*(p[i+1] -p_[i+1])*w[i+1] for i in As])*dx()\
-            - sum([ alpha[i]/lmbda*(p[0]-p_[0] + sum([alpha[j]*(p[j+1]-p_[j+1]) for j in As]))*w[i+1] for i in As])*dx() \
-            + sum([-dt*K[i]*inner(grad(pm[i+1]), grad(w[i+1])) for i in As])*dx() \
-            + sum([sum([-dt*S[i][j]*(pm[i+1] - pm[j+1])*w[i+1] for j in As]) \
-                    for i in As])*dx() \
+            + (div(u) - 1./lmbda*sum([alpha[i]*p[i+1] for i in Js]) -1./lmbda*p[0])*w[0]*dx()\
+            + sum([-c[i]*(p[i+1] -p_[i+1])*w[i+1] for i in Js])*dx()\
+            - sum([ alpha[i]/lmbda*(p[0]-p_[0] + sum([alpha[j]*(p[j+1]-p_[j+1]) for j in Js]))*w[i+1] for i in Js])*dx() \
+            + sum([-dt*K[i]*inner(grad(pm[i+1]), grad(w[i+1])) for i in Js])*dx() \
+            + sum([sum([-dt*S[i][j]*(pm[i+1] - pm[j+1])*w[i+1] for j in Js]) \
+                    for i in Js])*dx() \
 
         prec = 0
         if not self.params["direct_solver"]:
             # Define preconditioner form:
             pu = mu * inner(grad(u), grad(v))*dx()
             pp = sum(alpha[i]*alpha[i]/lmbda*p[i+1]*w[i+1]*dx() + dt*theta*K[i]*inner(grad(p[i+1]), grad(w[i+1]))*dx() \
-                    + (c[i] + sum([dt*theta*S[i][j] for j in list(As[:i])+list(As[i+1:])]))*p[i+1]*w[i+1]*dx() for i in As)
+                    + (c[i] + sum([dt*theta*S[i][j] for j in list(Js[:i])+list(Js[i+1:])]))*p[i+1]*w[i+1]*dx() for i in Js)
             ppt = p[0]*w[0]*dx()
             prec = pu + pp + ppt
             
@@ -316,7 +316,7 @@ class MPETTotalPressureSolver(object):
         dsc = []
         L1 = []
         L2 = []
-        for i in As:
+        for i in Js:
             markers = self.problem.continuity_boundary_markers[i]
             dsc += [Measure("ds", domain=mesh, subdomain_data=markers)]
             L1 += [dt*g[i]*w[i+1]*dx() + dt*I[i]*w[i+1]*dsc[i](NEUMANN_MARKER)]
