@@ -78,6 +78,7 @@ class MPETSolver(object):
 
         self.prec = prec
 
+        
     def create_dirichlet_bcs(self):
         """Extract information about Dirichlet boundary conditions from given
         MPET problem.
@@ -152,7 +153,7 @@ class MPETSolver(object):
 
         # Extract information from the problem
         mesh = self.problem.mesh
-        dt = Constant(self.params["dt"])
+        dt = self.params["dt"]
         J = self.problem.params["J"]
         Js = range(J)
         
