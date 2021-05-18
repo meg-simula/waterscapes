@@ -8,6 +8,7 @@ from dolfin import *
 
 from mpet.rm_basis_L2 import rigid_motions
 from mpet.bc_symmetric import *
+from mpet.mpetproblem import *
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -16,24 +17,6 @@ from mpet.bc_symmetric import *
 DIRICHLET_MARKER = 0
 NEUMANN_MARKER = 1
 ROBIN_MARKER = 2
-
-def convert_to_E_nu(mu, lmbda):
-    E = mu*(3*lmbda+2*mu)/(lmbda + mu)
-    nu = lmbda/(2*(lmbda + mu))
-    return (E, nu)
-
-def convert_to_mu_lmbda(E, nu):
-    mu = E/(2.0*((1.0 + nu)))
-    lmbda = nu*E/((1.0-2.0*nu)*(1.0+nu))
-    return (mu, lmbda)
-    
-def elastic_stress(u, E, nu):
-    "Define the standard linear elastic constitutive equation."
-    d = u.geometric_dimension()
-    I = Identity(d)
-    (mu, lmbda) = convert_to_mu_lmbda(E, nu)
-    s = 2*mu*sym(grad(u)) + lmbda*div(u)*I
-    return s
 
 class MPETSolver(object):
     """

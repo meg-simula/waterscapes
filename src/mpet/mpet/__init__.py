@@ -13,3 +13,6 @@ from mpet.mpettotalpressuresolver import *
 
 from mpet.bc_symmetric import *
 from mpet.rm_basis_L2 import rigid_motions
+
+from mpet.adaptivempetsolver import *
+
