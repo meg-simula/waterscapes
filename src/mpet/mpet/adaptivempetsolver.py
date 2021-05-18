@@ -8,10 +8,12 @@ from mpet.mpetproblem import *
 from mpet.mpetsolver import *
 
 class AdaptiveMPETSolver():
-    def __init__(self, problem, params=None):
+    def __init__(self, problem, f_, params=None):
 
         # Set problem and update parameters if given
         self.problem = problem
+        self.f_ = f_
+        
         self.params = self.default_params()
         if params is not None:
             self.params.update(params)
@@ -20,11 +22,9 @@ class AdaptiveMPETSolver():
                                        params=self.params["MPETSolver"])
         
         self.__init_error_estimators(self.problem, self.inner_solver)
-        
+
     def __init_error_estimators(self, problem, solver):
         "Initialize forms for error estimation."
-
-        self.time_ = Constant(problem.time)
 
         # Extract current and previous solutions from MPETSolver
         up = split(solver.up)
@@ -55,12 +55,7 @@ class AdaptiveMPETSolver():
 
         f = problem.f  
         g = problem.g  
-
-        # !!FIXME!!
-        f_ = problem.f
-        # Fix f_ assignment here
-        #f_ = self.problem.f#.copy()  
-        #f_.t.assign(self.time_)
+        f_ = self.f_
         
         dt = Constant(solver.params["dt"])
         
@@ -100,11 +95,41 @@ class AdaptiveMPETSolver():
 
         self.R4p = sum(R4p)
 
+        # Lists of error estimate terms, one for each time
+        self.eta_1s = []
+        self.eta_2s = []
+        self.eta_3s = []
+        self.eta_4s = []
+
+    def estimate_error_at_t(self):
+        # Compute element-wise error indicators
+        eta_u_K_m = assemble(self.zeta_u_K)
+        eta_p_K_m = assemble(self.zeta_p_K)
+        eta_u_dt_K_m = assemble(self.zeta_u_dt_K)
+
+        # Compute error estimators
+        eta_u_m = eta_u_K_m.sum()
+        eta_p_m = eta_p_K_m.sum()
+        eta_u_dt_m = eta_u_dt_K_m.sum()
+        eta_dt_p_m = assemble(self.R4p)
+
+        # Add time-wise entries to estimator lists
+        tau_m = float(self.inner_solver.params["dt"])
+        self.eta_1s += [tau_m*eta_p_m]
+        self.eta_2s += [eta_u_m]
+        self.eta_3s += [tau_m*numpy.sqrt(eta_u_dt_m)] 
+        self.eta_4s += [tau_m*eta_dt_p_m]
+
+    def compute_error_estimate(self):
+        # Sum lists of error estimators over time, to compute final error estimate
+        eta_1 = numpy.sqrt(numpy.sum(self.eta_1s))
+        eta_2 = numpy.sqrt(numpy.max(self.eta_2s))
+        eta_3 = numpy.sum(self.eta_3s)
+        eta_4 = numpy.sqrt(numpy.sum(self.eta_4s))
+        etas = (eta_1, eta_2, eta_3, eta_4)
+        eta = sum(etas)
+        return (eta, etas)
         
-    def estimate_error(self):
-
-        pass
-
     @staticmethod
     def default_params():
         "Define default solver parameters."

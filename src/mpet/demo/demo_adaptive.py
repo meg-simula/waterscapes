@@ -83,6 +83,7 @@ def main():
 
     # Define time (and Constant time_ for previous time)
     time = Constant(0.0) 
+    time_ = Constant(0.0) 
 
     # Define initial time step
     dt0 = 0.2
@@ -108,7 +109,7 @@ def main():
     u_e = Expression(u_str, degree=3, t=time)
     p_e = [Expression(p_str[j], degree=3, t=time) for j in Js]
     f = Expression(f_str, degree=3, t=time)
-    #f_ = Expression(f_str, degree=3, t=time_)
+    f_ = Expression(f_str, degree=3, t=time_)
     g = [Expression(g_str[j], degree=3, t=time) for j in Js]
 
     # Create MPETProblem object and attach sources and Dirichlet boundary values 
@@ -134,7 +135,8 @@ def main():
     params["MPETSolver"]["theta"] = theta
     params["MPETSolver"]["T"] = T
 
-    solver = AdaptiveMPETSolver(problem, params)
+    # Error estimation requires handle to evaluate f at previous time
+    solver = AdaptiveMPETSolver(problem, f_, params)
     info(solver.params, True)
     
     # Containers for comparing exact solution with error estimator
@@ -159,27 +161,13 @@ def main():
         # For each time step, compute solutions at this time step
         solutions = solver.inner_solver.solve()
         for (up, t) in solutions:
-            # Solve system at this time step
 
-            # Compute element-wise error indicators
-            eta_u_K_m = assemble(solver.zeta_u_K)
-            eta_p_K_m = assemble(solver.zeta_p_K)
-            eta_u_dt_K_m = assemble(solver.zeta_u_dt_K)
-            
-            # Compute error estimators
-            eta_u_m = eta_u_K_m.sum()
-            eta_p_m = eta_p_K_m.sum()
-            eta_u_dt_m = eta_u_dt_K_m.sum()
-            eta_dt_p_m = assemble(solver.R4p)
+            # Estimate the error of the solution
+            solver.estimate_error_at_t()
 
-            # Add time-wise entries to estimator lists
-            tau_m = float(solver.inner_solver.params["dt"])
-            eta_1s += [tau_m*eta_p_m]
-            eta_2s += [eta_u_m]
-            eta_3s += [tau_m*numpy.sqrt(eta_u_dt_m)] 
-            eta_4s += [tau_m*eta_dt_p_m]
-
+            #-----------------------------------------------------------------------
             # Compute actual errors for comparison and for computation of efficiency index
+            #-----------------------------------------------------------------------
             oops = up.split()
             u = oops[0]
             p = oops[1:]
@@ -208,17 +196,14 @@ def main():
             p_L2H1 += scipy.integrate.trapz(sum(numpy.square(ys)), dx=float(dt)/(m-1))
         
             # Assign "previous time" to time_ for use in the error estimates
-            solver.time_.assign(t)
+            time_.assign(t)
 
         # Compute error estimators
-        eta_1 = numpy.sqrt(numpy.sum(eta_1s))
-        eta_2 = numpy.sqrt(numpy.max(eta_2s))
-        eta_3 = numpy.sum(eta_3s)
-        eta_4 = numpy.sqrt(numpy.sum(eta_4s))
+        eta, etas = solver.compute_error_estimate()
 
+        (eta_1, eta_2, eta_3, eta_4) = etas
         print("eta_1 = %.3e, eta_2 = %.3e, eta_3 = %.3e, eta_4 = %.3e"
               % (eta_1, eta_2, eta_3, eta_4))
-        eta = eta_1 + eta_2 + eta_3 + eta_4
         print("eta = ", eta)
     
         # Compute total error
