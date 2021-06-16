@@ -298,7 +298,7 @@ class MPETTotalPressureSolver(object):
         # displacement
         if dimQ:
             i = 0
-            for (k, p_nullspace) in enumerate(self.problem.pressure_nullspace):
+            for (k, p_nullspace) in enumerate(self.problem.p_has_nullspace):
                 if p_nullspace:
                     F += p[k]*w_null[i]*dx() + p_null[i]*w[k]*dx()
                     if not self.params["direct_solver"]:

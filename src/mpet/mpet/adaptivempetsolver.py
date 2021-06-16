@@ -90,7 +90,7 @@ class AdaptiveMPETSolver():
         for j in J:
             R4p[j] = inner(K[j]*grad(p[j] - p_[j]), grad(p[j] - p_[j]))*dx
             for i in J:
-                if S[i][j] > DOLFIN_EPS:
+                if float(S[i][j]) > DOLFIN_EPS:
                     R4p[j] += (S[i][j]*((p[j] - p_[j]) - (p[i] - p_[i]))*(p[j] - p_[j]))*dx
 
         self.R4p = sum(R4p)
