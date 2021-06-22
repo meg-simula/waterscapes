@@ -86,11 +86,11 @@ def main():
     time_ = Constant(0.0) 
 
     # Define initial time step
-    dt0 = 0.2
+    dt0 = 0.1
     dt = Constant(dt0)
 
     # Set end-time
-    T = 0.5
+    T = 0.4
 
     # Define material parameters
     mu = 1.0

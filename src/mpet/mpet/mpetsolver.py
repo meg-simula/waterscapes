@@ -168,8 +168,12 @@ class MPETSolver(object):
             z = up[J+1]
             r = vq[J+1]
         if dimQ:
-            p_null = up[J+2:]
-            q_null = vq[J+2:]
+            if u_has_nullspace:
+                p_null = up[J+2:]
+                q_null = vq[J+2:]
+            else:
+                p_null = up[J+1:]
+                q_null = vq[J+1:]
                 
         # um and pm represent the solutions at time t + dt*theta
         theta = self.params["theta"]
