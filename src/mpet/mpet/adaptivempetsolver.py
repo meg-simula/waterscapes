@@ -45,10 +45,12 @@ class AdaptiveMPETSolver():
         nu = material["nu"]
         E = material["E"]
         mu, lmbda = convert_to_mu_lmbda(E, nu)
-        alpha = material["alpha"]
-        c = material["c"]
-        K = material["K"]
-        S = material["S"]
+        mu = Constant(mu)
+        lbmda = Constant(lmbda)
+        alpha = Constant(material["alpha"])
+        c = [Constant(ci) for ci in material["c"]]
+        K = [Constant(Ki) for Ki in material["K"]]
+        S = [[Constant(Sij) for Sij in Sj] for Sj in material["S"]]
         J = range(material["J"])
         
         sigma = lambda u: 2.0*mu*sym(grad(u)) + lmbda*div(u)*Identity(len(u))
@@ -90,7 +92,7 @@ class AdaptiveMPETSolver():
         for j in J:
             R4p[j] = inner(K[j]*grad(p[j] - p_[j]), grad(p[j] - p_[j]))*dx
             for i in J:
-                if S[i][j] > DOLFIN_EPS:
+                if float(S[i][j]) > DOLFIN_EPS:
                     R4p[j] += (S[i][j]*((p[j] - p_[j]) - (p[i] - p_[i]))*(p[j] - p_[j]))*dx
 
         self.R4p = sum(R4p)

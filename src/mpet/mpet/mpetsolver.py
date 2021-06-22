@@ -52,24 +52,13 @@ class MPETSolver(object):
             self.params.update(params)
 
         self.solver_monitor = {}
+
         # Initialize variational forms and store
-        # a is the main left-hand side form
-        # L is the right-hand side form that does not depend explicitly on time
-        # L0 is a list of right-hand side forms (from elliptic momentum equation)
-        # L1 is a list of right-hand side forms (from parabolic continuity equation)
-        a, a_robin, L, L0, L1, prec, up_, up = self.create_variational_forms()
+        self.create_variational_forms()
 
-        self.up_ = up_         # Solution at previous time step
-        self.up = up           # Solution at current time step
-
-        self.a = a             
-        self.a_robin = a_robin 
-        self.L = L             
-        self.L0 = L0
-        self.L1 = L1
-
-        self.prec = prec
-
+        # Initialize boundary conditions
+        self.create_dirichlet_bcs()
+        
         
     def create_dirichlet_bcs(self):
         """Extract information about Dirichlet boundary conditions from given
@@ -91,16 +80,17 @@ class MPETSolver(object):
             markers = self.problem.continuity_boundary_markers[i]
             bcs1 += [DirichletBC(VP.sub(i+1), p_bar[i], markers, DIRICHLET_MARKER)]
 
+        self.bcs = [bcs0, bcs1]
         return [bcs0, bcs1]
     
     @staticmethod
     def default_params():
         "Define default solver parameters."
         params = Parameters("MPETSolver")
-        params.add("dt", 0.05)
+        params.add("dt", 0.1)
         params.add("t", 0.0)
         params.add("T", 1.0)
-        params.add("theta", 0.5)
+        params.add("theta", 1.0)
         params.add("u_degree", 2)
         params.add("p_degree", 1)
         params.add("direct_solver", True)
@@ -142,10 +132,9 @@ class MPETSolver(object):
         return VQ
         
     def create_variational_forms(self, include_preconditioner=False):
-
         # Extract information from the problem
         mesh = self.problem.mesh
-        dt = self.params["dt"]
+        dt = Constant(self.params["dt"])
         J = self.problem.params["J"]
         Js = range(J)
         
@@ -283,7 +272,26 @@ class MPETSolver(object):
             #if u_has_nullspace:
             #    prec += sum(z[i]*r[i]*dx() for i in range(dimZ)) + inner(u,v)*dx() 
 
-        return a, a_robin, L, L0, L1, prec, up_, up
+        # Store previous (up_) and current fields (up) as class variables
+        self.up_ = up_ 
+        self.up = up   
+
+        # Store dt as a Constant, so that it can be updated in a time loop
+        self.dt = dt
+
+        # Store forms
+        self.a = a             
+        self.a_robin = a_robin 
+        self.L = L             
+        self.L0 = L0
+        self.L1 = L1
+
+        self.prec = prec
+
+        forms = (a, a_robin, L, L0, L1)
+        fields = (up_, up)
+        
+        return (forms, prec, fields, dt)
 
     def solve(self):
         """Solve the given MPET problem to the end time given by the parameter
@@ -293,7 +301,6 @@ class MPETSolver(object):
         to calling solve.
 
         """
-
         warning("Solving using direct solver, ignoring solver type.")
         return self.solve_direct()
 
@@ -302,6 +309,72 @@ class MPETSolver(object):
         #else:
         #    return self.solve_iterative()
 
+
+    def step(self, dt=None, up_=None):
+        """Solve the given MPET problem from current time t to t + dt. 
+
+        Users should set up_ to the correct initial conditions prior
+        to calling step. step will update up and time, but not _up
+
+        """
+        # Extract relevant time parameters
+        theta = self.params["theta"]
+        time = self.problem.time 
+        
+        # Update the class Constant dt (used informs)
+        self.params["dt"] = float(dt) # Should I update this?
+        self.dt.assign(dt)
+
+        # Assemble left-hand side matrix including Robin
+        # terms. (Design due to missing FEniCS feature of assembling
+        # integrals of same type with different subdomains.)
+        A = assemble(self.a)  
+        for a_a in self.a_robin:
+            A_a = assemble(a_a)
+            A.axpy(1.0, A_a, False) 
+        
+        # Apply boundary conditions to matrix once:
+        (bcs0, bcs1) = self.bcs
+        bcs = bcs0 + bcs1
+        for bc in bcs:
+            bc.apply(A)
+        
+        # Create LU solver
+        solver = LUSolver(A, "mumps")
+        
+        # Times defining the time interval (for readability)
+        t0 = float(time)
+        t_theta = t0 + theta*float(dt)
+        t1 = t0 + float(dt)
+            
+        # 1. Assemble the parts of right-hand side forms (i.e. L)
+        # that does not depend on time explicitly
+        b = assemble(self.L)  
+
+        # Update time to t0 + theta*dt
+        time.assign(t_theta)                
+        
+        # 2. Assemble time-dependent rhs for parabolic equations
+        # and add to right-hand side vector b
+        for l in self.L1: 
+            b_l = assemble(l)  
+            b.axpy(1.0, b_l)
+
+        # Update time to t1:
+        time.assign(t1)
+            
+        # 3. Assemble time-dependent rhs for elliptic equations
+        b0 = assemble(self.L0)
+        b.axpy(1.0, b0)
+
+        # Apply boundary conditions            
+        for bc in bcs:
+            bc.apply(b)
+
+        # Solve
+        solver.solve(A, self.up.vector(), b)
+        
+        
     def solve_direct(self):
         """Solve the given MPET problem to the end time given by the parameter
         'T' using a direct (LU) solver. This method yields solutions
@@ -384,9 +457,7 @@ class MPETSolver(object):
             # Update previous solution up_ with current solution up
             self.up_.assign(self.up)
 
-            # Update time
-            time.assign(t1)
-
+            
     def solve_iterative(self):
         """Solve the given MPET problem to the end time given by the parameter
         'T' using a preconditioned Krylov solver. This method yields
@@ -424,7 +495,6 @@ class MPETSolver(object):
             A.axpy(1.0, A_a, False) 
 
         # Assemble preconditioner and apply boundary conditions
-        print(prec)
         P = assemble(prec)
         for bc in bcs:
             apply_symmetric(bc, P)
