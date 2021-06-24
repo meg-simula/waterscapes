@@ -59,7 +59,7 @@ class AdaptiveMPETSolver():
         g = problem.g  
         f_ = self.f_
         
-        dt = Constant(solver.params["dt"])
+        dt = solver.dt
         
         # Define cell and edge residuals of momentum equation
         RK_u = f + div(sigma(u)) - sum([grad(alpha[i]*p[i]) for i in J])
@@ -116,7 +116,7 @@ class AdaptiveMPETSolver():
         eta_dt_p_m = assemble(self.R4p)
 
         # Add time-wise entries to estimator lists
-        tau_m = float(self.inner_solver.params["dt"])
+        tau_m = float(self.inner_solver.dt)
         self.eta_1s += [tau_m*eta_p_m]
         self.eta_2s += [eta_u_m]
         self.eta_3s += [tau_m*numpy.sqrt(eta_u_dt_m)] 
@@ -137,10 +137,11 @@ class AdaptiveMPETSolver():
         "Define default solver parameters."
         params = Parameters("AdaptiveMPETSolver")
         params.add(MPETSolver.default_params())
-
-        #dt0 = params["MPETSolver"]["dt"]
-        #params.add("dt0", dt0)
-
+        params.add("alpha", 0.1)
+        params.add("beta", 2)
+        params.add("tau_max", 0.2)
+        params.add("tau_min", 0.0)
+        
         return params
 
 # def adaptive_solve(adaptive, material, mesh):
