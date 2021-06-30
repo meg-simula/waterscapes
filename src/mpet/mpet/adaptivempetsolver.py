@@ -122,6 +122,13 @@ class AdaptiveMPETSolver():
         self.eta_3s += [tau_m*numpy.sqrt(eta_u_dt_m)] 
         self.eta_4s += [tau_m*eta_dt_p_m]
 
+    def pop_error_estimators(self):
+        "Remove last items from error estimators lists."
+        self.eta_1s.pop()
+        self.eta_2s.pop()
+        self.eta_3s.pop()
+        self.eta_4s.pop()
+        
     def compute_error_estimate(self):
         # Sum lists of error estimators over time, to compute final error estimate
         eta_1 = numpy.sqrt(numpy.sum(self.eta_1s))
