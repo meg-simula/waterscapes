@@ -139,7 +139,7 @@ class AdaptiveMPETSolver():
         self.eta_2Ks = Function(w.function_space())
         self.eta_3Ks = Function(w.function_space())
         
-    def estimate_error_at_t(self, combine=True):
+    def estimate_error_at_t(self):
         # Compute element-wise error indicators
         eta_p_K_m = assemble(self.zeta_p_K)
         eta_u_K_m = assemble(self.zeta_u_K)
@@ -159,18 +159,19 @@ class AdaptiveMPETSolver():
         self.eta_3s += [tau_m*numpy.sqrt(eta_u_dt_m)] 
         self.eta_4s += [tau_m*eta_dt_p_m]
 
-        # Add time-wise entries to indicator fields
-        if combine:
-            print("Adding to error indicator fields")
-            self.eta_1Ks.vector().axpy(tau_m, eta_p_K_m)
-            self.eta_3Ks.vector()[:] = tau_m*numpy.sqrt(eta_u_dt_K_m.get_local())
+        return (eta_p_K_m, eta_u_K_m, eta_u_dt_K_m, tau_m)
+        
+    def add_to_indicators(self, eta_Ks):
+        print("Adding to error indicator fields")
+        (eta_p_K_m, eta_u_K_m, eta_u_dt_K_m, tau_m) = eta_Ks
 
-            e0 = self.eta_2Ks.vector().get_local()
-            e1 = eta_u_K_m.get_local()
-            self.eta_2Ks.vector()[:] = numpy.maximum(e0, e1)
+        self.eta_1Ks.vector().axpy(tau_m, eta_p_K_m)
+        self.eta_3Ks.vector()[:] = tau_m*numpy.sqrt(eta_u_dt_K_m.get_local())
 
-            # FIXME: Bug here yet, need to fix pop/not combine version here. Just worthwhile for testing for now.
-            
+        e0 = self.eta_2Ks.vector().get_local()
+        e1 = eta_u_K_m.get_local()
+        self.eta_2Ks.vector()[:] = numpy.maximum(e0, e1)
+
     def pop_error_estimators(self):
         "Remove last items from error estimators lists."
         self.eta_1s.pop()
