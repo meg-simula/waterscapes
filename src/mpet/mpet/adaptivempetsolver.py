@@ -162,7 +162,7 @@ class AdaptiveMPETSolver():
         return (eta_p_K_m, eta_u_K_m, eta_u_dt_K_m, tau_m)
         
     def add_to_indicators(self, eta_Ks):
-        print("Adding to error indicator fields")
+        info("Adding to error indicator fields")
         (eta_p_K_m, eta_u_K_m, eta_u_dt_K_m, tau_m) = eta_Ks
 
         self.eta_1Ks.vector().axpy(tau_m, eta_p_K_m)
@@ -208,6 +208,7 @@ class AdaptiveMPETSolver():
         params.add("beta", 2)
         params.add("tau_max", 0.2)
         params.add("tau_min", 0.0)
+        params.add("dorfler_fraction", 1.0)
         
         return params
 
