@@ -1,12 +1,37 @@
 from dolfin import *
 
 import numpy
+import math
 import scipy.integrate
 import itertools
 
 from mpet.mpetproblem import *
 from mpet.mpetsolver import *
 
+def maximal_mark(indicators, fraction):
+    """Compute Boolean markers given the error indicators field and a
+    marking parameter 'fraction' f (*100%).
+
+    Mark the f 100% cells with the largest error.
+
+    Note that fraction = 1.0 marks all cells, fraction=0.0 marks no
+    cells.
+
+    """
+    mesh = indicators.function_space().mesh()
+    markers = MeshFunction("bool", mesh, mesh.topology().dim(), False)
+
+    # Sort indicators (higher to lower, note negative sort trick)
+    etas = indicators.vector().get_local()
+    indices = numpy.argsort(-etas)
+
+    A = math.ceil(fraction*mesh.num_cells)
+    to_be_refined = indices[0:A]
+
+    # Mark those that should be refined
+    markers.array()[to_be_refined] = True
+
+    return markers
 
 def dorfler_mark(indicators, fraction):
     """Compute Boolean markers given the error indicators field and the
@@ -208,7 +233,7 @@ class AdaptiveMPETSolver():
         params.add("beta", 2)
         params.add("tau_max", 0.2)
         params.add("tau_min", 0.0)
-        params.add("dorfler_fraction", 1.0)
+        params.add("marking_fraction", 1.0)
         
         return params
 
