@@ -25,7 +25,7 @@ def maximal_mark(indicators, fraction):
     etas = indicators.vector().get_local()
     indices = numpy.argsort(-etas)
 
-    A = math.ceil(fraction*mesh.num_cells)
+    A = math.ceil(fraction*mesh.num_cells())
     to_be_refined = indices[0:A]
 
     # Mark those that should be refined
